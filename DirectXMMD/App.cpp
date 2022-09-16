@@ -5,70 +5,72 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lpar
 {
 	switch (msg)
 	{
-		//ウィンドウが破棄されたら
-		case WM_CLOSE:
-			DestroyWindow(hWnd);
-			break;
-		case WM_DESTROY:
-			OutputDebugString(TEXT("終了\n"));
-			PostQuitMessage(0);
-			return 0;
-		default:
-			return DefWindowProc(hWnd, msg, wparam, lparam);
+	//ウィンドウが破棄されたら
+	case WM_CLOSE:
+		DestroyWindow(hWnd);
+		break;
+	case WM_DESTROY:
+		OutputDebugString(TEXT("終了\n"));
+		PostQuitMessage(0);
+		return 0;
+	default:
+		return DefWindowProc(hWnd, msg, wparam, lparam);
 	}
 
 	//規定の処理を行う
 	return 0;
 }
 
-void MainLoop() 
+void MainLoop()
 {
 	MSG msg = {};
-	while (true) 
+	while (true)
 	{
 		//ウィンドウが終了していなければ回す
-		if (msg.message != WM_QUIT) {
+		if (msg.message != WM_QUIT)
+		{
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
-		else {
+		else
+		{
 			// DispatchMessage(&msg);
 			break;
 		}
 	}
 }
 
-HWND InitWindow(const TCHAR* appName)
+HWND InitWindow(const TCHAR *appName)
 {
 	//ウィンドウクラスの生成
 	WNDCLASSEX w = {};
 
 	w.cbSize = sizeof(WNDCLASSEX);
-	w.lpfnWndProc = (WNDPROC)WindowProcedure;//コールバックの登録
+	w.lpfnWndProc = (WNDPROC)WindowProcedure; //コールバックの登録
 	w.lpszClassName = appName;
-	w.hInstance = GetModuleHandle(nullptr);//ハンドルの取得
+	w.hInstance = GetModuleHandle(nullptr); //ハンドルの取得
 	w.hIcon = LoadIcon(w.hInstance, MAKEINTRESOURCE(101));
-	//w.hIconSm = LoadIcon(w.hInstance, MAKEINTRESOURCE(101));
-	RegisterClassEx(&w);//ウィンドウクラスの指定をOSに伝える
+	// w.hIconSm = LoadIcon(w.hInstance, MAKEINTRESOURCE(101));
+	RegisterClassEx(&w); //ウィンドウクラスの指定をOSに伝える
 
-	RECT wrc = { 0,0,WINDOW_WIDTH,WINDOW_HEIGHT };
+	RECT wrc = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
 	//ウィンドウサイズを決める
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
 
 	HWND hwnd = CreateWindow(w.lpszClassName,
-		appName,
-		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		wrc.right - wrc.left,//ウィンドウ幅
-		wrc.bottom - wrc.top,//ウィンドウ高さ
-		nullptr,//親ウィンドウ
-		nullptr,//メニューハンドル
-		w.hInstance,//呼び出しアプリケーション
-		nullptr);//追加パラメーター
+							 appName,
+							 WS_OVERLAPPEDWINDOW,
+							 CW_USEDEFAULT,
+							 CW_USEDEFAULT,
+							 wrc.right - wrc.left, //ウィンドウ幅
+							 wrc.bottom - wrc.top, //ウィンドウ高さ
+							 nullptr,			   //親ウィンドウ
+							 nullptr,			   //メニューハンドル
+							 w.hInstance,		   //呼び出しアプリケーション
+							 nullptr);			   //追加パラメーター
 
 	ShowWindow(hwnd, SW_SHOW);
 
@@ -77,13 +79,16 @@ HWND InitWindow(const TCHAR* appName)
 	return hwnd;
 }
 
-void StartApp(const TCHAR* appName)
+void StartApp(const TCHAR *appName)
 {
-	HWND  hwnd = InitWindow(appName);
+	HWND hwnd = InitWindow(appName);
 	g_Engine = new Engine();
-	if (!g_Engine->Init(hwnd)) {
+	if (!g_Engine->Init(hwnd))
+	{
 		return;
 	}
+
+	g_Engine->SampleRender();
 
 	MainLoop();
 }
