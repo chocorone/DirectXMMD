@@ -1,8 +1,6 @@
 #include "App.h"
 #include "Engine.h"
 
-HWND* g_hWnd;
-
 LRESULT WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam) 
 {
 	switch (msg)
@@ -35,7 +33,7 @@ void MainLoop()
 	}
 }
 
-void InitWindow(const TCHAR* appName) {
+HWND InitWindow(const TCHAR* appName) {
 	//ウィンドウクラスの生成
 	WNDCLASSEX w = {};
 
@@ -62,18 +60,19 @@ void InitWindow(const TCHAR* appName) {
 		nullptr,//メニューハンドル
 		w.hInstance,//呼び出しアプリケーション
 		nullptr);//追加パラメーター
-	g_hWnd = &hwnd;
 
-	ShowWindow(*g_hWnd, SW_SHOW);
+	ShowWindow(hwnd, SW_SHOW);
 
 	UnregisterClass(w.lpszClassName, w.hInstance);
+
+	return hwnd;
 }
 
 void StartApp(const TCHAR* appName)
 {
-	InitWindow(appName);
+	HWND  hwnd = InitWindow(appName);
 	g_Engine = new Engine();
-	if (!g_Engine->Init(*g_hWnd, WINDOW_WIDTH, WINDOW_HEIGHT)) {
+	if (!g_Engine->Init(hwnd)) {
 		return;
 	}
 

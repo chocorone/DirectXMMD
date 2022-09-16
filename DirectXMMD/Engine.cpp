@@ -3,7 +3,7 @@
 
 Engine* g_Engine;
 
-bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
+bool Engine::Init(HWND hwnd)
 {
 	OutputDebugString(TEXT("D3Dの初期化中\n"));
 	if (!CreateDevice()) {
@@ -18,6 +18,11 @@ bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
 
 	if (!CreateCommandQueue()) {
 		OutputDebugString(TEXT("コマンドキューの生成に失敗\n"));
+		return false;
+	}
+
+	if (!CreateSwapChain(hwnd)) {
+		OutputDebugString(TEXT("スワップチェーンの生成に失敗\n"));
 		return false;
 	}
 
@@ -111,7 +116,7 @@ bool Engine::CreateCommandQueue()
 	return true;
 }
 
-bool Engine::CreateSwapChain()
+bool Engine::CreateSwapChain(HWND hWnd)
 {
 	DXGI_SWAP_CHAIN_DESC1 desc = {};
 
@@ -134,7 +139,7 @@ bool Engine::CreateSwapChain()
 
 	LRESULT res = _dxgiFactory->CreateSwapChainForHwnd(
 		_cmdQueue,
-		*g_hWnd,
+		hWnd,
 		&desc,
 		nullptr,
 		nullptr,
@@ -153,6 +158,23 @@ bool Engine::CreateDescriptorHeap()
 	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
 	LRESULT res = _device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&_rtvHeaps));
+
+	if (FAILED(res)) 
+		return false;
+	
+	DXGI_SWAP_CHAIN_DESC swc_desc = {};
+	res = _swapchain->GetDesc(&swc_desc);
+
+	if (FAILED(res))
+		return false;
+
+	std::vector<ID3D12Resource*> backBuffers(swc_desc.BufferCount);
+
+	for (int i = 0; i < swc_desc.BufferCount;i++) {
+		res = _swapchain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
+	}
+
+	
 
 	return SUCCEEDED(res);
 }

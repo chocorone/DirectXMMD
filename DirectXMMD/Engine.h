@@ -26,13 +26,13 @@ private:
 
 	//関数の定義
 public:
-	bool Init(HWND hwnd, UINT windowWidth, UINT windowHight);//エンジン初期化
+	bool Init(HWND hwnd);//エンジン初期化
 
 private://DirectX12初期化に使う関数
 	bool CreateDevice();//デバイスを生成
 	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
-	bool CreateSwapChain();
+	bool CreateSwapChain(HWND hWnd);
 	bool CreateDescriptorHeap();
 
 };
