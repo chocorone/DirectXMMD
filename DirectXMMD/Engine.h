@@ -15,6 +15,7 @@ private:
 ID3D12Device* _dev = nullptr;
 IDXGIFactory6* _dxgiFactory = nullptr;
 IDXGISwapChain4* _swapchain = nullptr;
+D3D_FEATURE_LEVEL featureLevel;
 
 //ŠÖ”‚Ì’è‹`
 public:

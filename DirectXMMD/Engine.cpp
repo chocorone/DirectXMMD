@@ -16,7 +16,21 @@ bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
 
 bool Engine::CreateDevice()
 {
-	LRESULT res = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&_dev));
+	D3D_FEATURE_LEVEL levels[] = {
+		D3D_FEATURE_LEVEL_12_1,
+		D3D_FEATURE_LEVEL_12_0,
+		D3D_FEATURE_LEVEL_11_1,
+		D3D_FEATURE_LEVEL_11_0
+	};
 
-	return SUCCEEDED(res);
+	for (D3D_FEATURE_LEVEL l : levels) {
+		LRESULT res = D3D12CreateDevice(nullptr, l, IID_PPV_ARGS(&_dev));
+
+		if (SUCCEEDED(res)) {
+			
+			return true;
+		}
+	}
+
+	return false;
 }
