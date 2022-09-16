@@ -39,6 +39,12 @@ bool Engine::Init(HWND hwnd)
 		OutputDebugString(TEXT("ディスクリプタヒープの生成に失敗\n"));
 		return false;
 	}
+	if (!CreateFence())
+	{
+		OutputDebugString(TEXT("フェンスの生成に失敗\n"));
+		return false;
+	}
+
 	OutputDebugString(TEXT("D3Dの初期化に成功\n"));
 
 	return true;
@@ -48,20 +54,48 @@ void Engine::SampleRender()
 {
 	//スワップチェーンの動作確認
 	//現在のバッファをレンダーターゲットビューに指定
-	LRESULT res = _cmdAllocator->Reset();
+	_cmdAllocator->Reset();
+	_cmdList->Reset(_cmdAllocator, nullptr);
 	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
 	auto rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
 	rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
 							  D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	//ここにリソースバリアの設定
+	D3D12_RESOURCE_BARRIER barriorDesc = {};
+	barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barriorDesc.Transition.pResource = backBuffers[bbIndex];
+	barriorDesc.Transition.Subresource = 0;
+
+	barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_cmdList->ResourceBarrier(1, &barriorDesc);
+
 	_cmdList->OMSetRenderTargets(1, &rtvH, true, nullptr);
 
 	//コマンドリストの作成
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
+
+	barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+	_cmdList->ResourceBarrier(1, &barriorDesc);
+
 	_cmdList->Close();
 	ID3D12CommandList *cmdLists[] = {_cmdList};
 	_cmdQueue->ExecuteCommandLists(1, cmdLists);
 
+	_cmdQueue->Signal(_fence, ++_fenceVal);
+	if (_fence->GetCompletedValue() != _fenceVal)
+	{
+		auto event = CreateEvent(nullptr, false, false, nullptr);
+		_fence->SetEventOnCompletion(_fenceVal, event);
+
+		WaitForSingleObject(event, INFINITE);
+
+		CloseHandle(event);
+	}
 	_cmdAllocator->Reset();
 	_cmdList->Reset(_cmdAllocator, nullptr);
 
@@ -151,6 +185,7 @@ bool Engine::CreateCommandQueue()
 		OutputDebugString(TEXT("コマンドリストの作成に失敗\n"));
 		return false;
 	}
+	_cmdList->Close();
 
 	D3D12_COMMAND_QUEUE_DESC desc = {};
 
@@ -220,7 +255,7 @@ bool Engine::CreateDescriptorHeap()
 	if (FAILED(res))
 		return false;
 
-	std::vector<ID3D12Resource *> backBuffers(swc_desc.BufferCount);
+	backBuffers.resize(swc_desc.BufferCount);
 
 	for (int i = 0; i < swc_desc.BufferCount; i++)
 	{
@@ -234,6 +269,13 @@ bool Engine::CreateDescriptorHeap()
 
 		_device->CreateRenderTargetView(backBuffers[i], nullptr, handle);
 	}
+
+	return SUCCEEDED(res);
+}
+
+bool Engine::CreateFence()
+{
+	LRESULT res = _device->CreateFence(_fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 
 	return SUCCEEDED(res);
 }

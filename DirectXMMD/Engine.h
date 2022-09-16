@@ -21,6 +21,9 @@ private:
 	ID3D12GraphicsCommandList *_cmdList = nullptr;
 	ID3D12CommandQueue *_cmdQueue = nullptr;
 	ID3D12DescriptorHeap *_rtvHeaps = nullptr;
+	std::vector<ID3D12Resource *> backBuffers;
+	ID3D12Fence *_fence = nullptr;
+	UINT _fenceVal = 0;
 
 	D3D_FEATURE_LEVEL featureLevel;
 
@@ -35,6 +38,7 @@ private:				 // DirectX12èâä˙âªÇ…égÇ§ä÷êî
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);
 	bool CreateDescriptorHeap();
+	bool CreateFence();
 	void EnableDebugLayer();
 };
 
