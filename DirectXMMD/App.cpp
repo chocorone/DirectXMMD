@@ -1,20 +1,24 @@
 #include "App.h"
 #include "Engine.h"
 
-LRESULT WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam) 
+LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	switch (msg)
 	{
 		//ウィンドウが破棄されたら
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-	default:
-		break;
+		case WM_CLOSE:
+			DestroyWindow(hWnd);
+			break;
+		case WM_DESTROY:
+			OutputDebugString(TEXT("終了\n"));
+			PostQuitMessage(0);
+			return 0;
+		default:
+			return DefWindowProc(hWnd, msg, wparam, lparam);
 	}
 
 	//規定の処理を行う
-	return DefWindowProc(hWnd, msg, wparam, lparam);
+	return 0;
 }
 
 void MainLoop() 
@@ -29,11 +33,16 @@ void MainLoop()
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-		}	
+		}
+		else {
+			// DispatchMessage(&msg);
+			break;
+		}
 	}
 }
 
-HWND InitWindow(const TCHAR* appName) {
+HWND InitWindow(const TCHAR* appName)
+{
 	//ウィンドウクラスの生成
 	WNDCLASSEX w = {};
 
