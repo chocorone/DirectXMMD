@@ -1,4 +1,7 @@
 #include "App.h"
+#include "Engine.h"
+
+HWND hwnd = NULL;
 
 LRESULT WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam) 
 {
@@ -32,8 +35,7 @@ void MainLoop()
 	}
 }
 
-void StartApp(const TCHAR* appName)
-{
+void InitWindow(const TCHAR* appName) {
 	//ウィンドウクラスの生成
 	WNDCLASSEX w = {};
 
@@ -49,7 +51,7 @@ void StartApp(const TCHAR* appName)
 	//ウィンドウサイズを決める
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
 
-	HWND hwnd = CreateWindow(w.lpszClassName,
+	hwnd = CreateWindow(w.lpszClassName,
 		appName,
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,
@@ -64,5 +66,15 @@ void StartApp(const TCHAR* appName)
 	ShowWindow(hwnd, SW_SHOW);
 
 	UnregisterClass(w.lpszClassName, w.hInstance);
+}
+
+void StartApp(const TCHAR* appName)
+{
+	InitWindow(appName);
+	g_Engine = new Engine();
+	if (!g_Engine->Init(hwnd, WINDOW_WIDTH, WINDOW_HEIGHT)) {
+		return;
+	}
+
 	MainLoop();
 }
