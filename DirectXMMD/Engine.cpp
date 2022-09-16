@@ -15,6 +15,11 @@ bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
 		return false;
 	}*/
 
+	if (!CreateCommandQueue()) {
+		OutputDebugString(TEXT("コマンドキューの生成に失敗\n"));
+		return false;
+	}
+
 	OutputDebugString(TEXT("D3Dの初期化に成功\n"));
 	return true;
 }
@@ -67,5 +72,35 @@ bool Engine::CreateDXGIFactory()
 
 		std::wstring strDesc = adesc.Description;
 	}*/
+	return true;
+}
+
+bool Engine::CreateCommandQueue()
+{
+	LRESULT res = _device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_cmdAllocator));
+	if (FAILED(res)) {
+		OutputDebugString(TEXT("コマンドアロケーターの作成に失敗\n"));
+		return false;
+	}
+
+	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator, nullptr, IID_PPV_ARGS(&_cmdList));
+	if (FAILED(res)) {
+		OutputDebugString(TEXT("コマンドリストの作成に失敗\n"));
+		return false;
+	}
+
+	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
+
+	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;//タイムアウトなし
+	cmdQueueDesc.NodeMask =0 ;
+	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	res = _device->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue));
+
+	if (FAILED(res)) {
+		OutputDebugString(TEXT("コマンドキューの作成に失敗\n"));
+		return false;
+	}
+
 	return true;
 }
