@@ -5,6 +5,10 @@ Engine *g_Engine;
 
 bool Engine::Init(HWND hwnd)
 {
+#ifdef _DEBUG
+	EnableDebugLayer();
+#endif
+
 	OutputDebugString(TEXT("D3D‚Ì‰Šú‰»’†\n"));
 	if (!CreateDevice())
 	{
@@ -65,6 +69,15 @@ void Engine::SampleRender()
 	_swapchain->Present(1, 0);
 }
 
+void Engine::EnableDebugLayer()
+{
+	ID3D12Debug *debug = nullptr;
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
+	{
+		debug->EnableDebugLayer();
+		debug->Release();
+	}
+}
 bool Engine::CreateDevice()
 {
 	D3D_FEATURE_LEVEL levels[] = {

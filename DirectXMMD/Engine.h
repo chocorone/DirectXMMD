@@ -3,6 +3,7 @@
 #include <dxgi.h>
 #include <dxgi1_6.h>
 #include <Windows.h>
+#include <d3d12sdklayers.h>
 #include <vector>
 #include <string>
 
@@ -34,6 +35,7 @@ private:				 // DirectX12‰Šú‰»‚Ég‚¤ŠÖ”
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);
 	bool CreateDescriptorHeap();
+	void EnableDebugLayer();
 };
 
 extern Engine *g_Engine;
