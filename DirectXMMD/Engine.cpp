@@ -21,6 +21,11 @@ bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
 		return false;
 	}
 
+	if (!CreateDescriptorHeap()) {
+		OutputDebugString(TEXT("ディスクリプタヒープの生成に失敗\n"));
+		return false;
+	}
+
 	OutputDebugString(TEXT("D3Dの初期化に成功\n"));
 	return true;
 }
@@ -136,9 +141,18 @@ bool Engine::CreateSwapChain()
 		(IDXGISwapChain1**)&_swapchain
 	);
 
-	if (FAILED(res)) {
-		return false;
-	}
+	return SUCCEEDED(res);
+}
 
-	return false;
+bool Engine::CreateDescriptorHeap()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	desc.NodeMask = 0;
+	desc.NumDescriptors = 2;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+	LRESULT res = _device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&_rtvHeaps));
+
+	return SUCCEEDED(res);
 }
