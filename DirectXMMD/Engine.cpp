@@ -78,6 +78,7 @@ void Engine::EnableDebugLayer()
 		debug->Release();
 	}
 }
+
 bool Engine::CreateDevice()
 {
 	D3D_FEATURE_LEVEL levels[] = {
@@ -102,7 +103,11 @@ bool Engine::CreateDevice()
 
 bool Engine::CreateDXGIFactory()
 {
+#ifdef _DEBUG
+	LRESULT res = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory));
+#else
 	LRESULT res = CreateDXGIFactory1(IID_PPV_ARGS(&_dxgiFactory));
+#endif
 	if (FAILED(res))
 		return false;
 
