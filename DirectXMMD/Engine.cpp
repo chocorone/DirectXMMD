@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "App.h"
 
 Engine* g_Engine;
 
@@ -10,10 +11,10 @@ bool Engine::Init(HWND hwnd, UINT windowWidth, UINT windowHight)
 		return false;
 	}
 
-	/*if (!CreateDXGIFactory()) {
+	if (!CreateDXGIFactory()) {
 		OutputDebugString(TEXT("アダプターの設定に失敗\n"));
 		return false;
-	}*/
+	}
 
 	if (!CreateCommandQueue()) {
 		OutputDebugString(TEXT("コマンドキューの生成に失敗\n"));
@@ -89,13 +90,13 @@ bool Engine::CreateCommandQueue()
 		return false;
 	}
 
-	D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
+	D3D12_COMMAND_QUEUE_DESC desc = {};
 
-	cmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;//タイムアウトなし
-	cmdQueueDesc.NodeMask =0 ;
-	cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-	cmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	res = _device->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(&_cmdQueue));
+	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;//タイムアウトなし
+	desc.NodeMask =0 ;
+	desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	res = _device->CreateCommandQueue(&desc, IID_PPV_ARGS(&_cmdQueue));
 
 	if (FAILED(res)) {
 		OutputDebugString(TEXT("コマンドキューの作成に失敗\n"));
@@ -103,4 +104,41 @@ bool Engine::CreateCommandQueue()
 	}
 
 	return true;
+}
+
+bool Engine::CreateSwapChain()
+{
+	DXGI_SWAP_CHAIN_DESC1 desc = {};
+
+	desc.Width = WINDOW_WIDTH;
+	desc.Height = WINDOW_HEIGHT;
+	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.Stereo = false;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
+	desc.BufferCount = 2;
+
+	desc.Scaling = DXGI_SCALING_STRETCH;
+
+	desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+
+	desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+
+	desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+	LRESULT res = _dxgiFactory->CreateSwapChainForHwnd(
+		_cmdQueue,
+		*g_hWnd,
+		&desc,
+		nullptr,
+		nullptr,
+		(IDXGISwapChain1**)&_swapchain
+	);
+
+	if (FAILED(res)) {
+		return false;
+	}
+
+	return false;
 }

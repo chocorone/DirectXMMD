@@ -30,6 +30,7 @@ private://DirectX12初期化に使う関数
 	bool CreateDevice();//デバイスを生成
 	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
+	bool CreateSwapChain();
 };
 
 extern Engine* g_Engine;
