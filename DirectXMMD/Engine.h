@@ -6,6 +6,7 @@
 #include <d3d12sdklayers.h>
 #include <vector>
 #include <string>
+#include <DirectXMath.h>
 #include "ComPtr.h"
 
 #pragma comment(lib, "d3d12.lib")
@@ -34,6 +35,7 @@ private:
 public:
 	bool Init(HWND hwnd); //エンジン初期化
 	void SampleRender();
+	void SanmplePolygonRender(DirectX::XMFLOAT3 vertics[]);
 
 private:				 // DirectX12初期化に使う関数
 	bool CreateDevice(); //デバイスを生成

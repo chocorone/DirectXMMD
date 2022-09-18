@@ -90,5 +90,13 @@ void StartApp(const TCHAR *appName)
 
 	g_Engine->SampleRender();
 
+	DirectX::XMFLOAT3 vertics[] = {
+		{-1.0f,-1.0f,0.0f},
+		{-1.0f,1.0f,0.0f},
+		{1.0f,-1.0f,0.0f},
+	};
+
+	g_Engine->SanmplePolygonRender(vertics);
+
 	MainLoop();
 }

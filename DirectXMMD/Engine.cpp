@@ -103,6 +103,40 @@ void Engine::SampleRender()
 	_swapchain->Present(1, 0);
 }
 
+void Engine::SanmplePolygonRender(DirectX::XMFLOAT3 vertics[])
+{
+	D3D12_HEAP_PROPERTIES heapprp = {};
+
+	heapprp.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heapprp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapprp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+	D3D12_RESOURCE_DESC resdesc = {};
+	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resdesc.Width = sizeof(vertics);
+	resdesc.Height = 1;
+	resdesc.DepthOrArraySize = 1;
+	resdesc.MipLevels = 1;
+	resdesc.Format = DXGI_FORMAT_UNKNOWN;
+	resdesc.SampleDesc.Count = 1;
+	resdesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	resdesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	ID3D12Resource *vertBuff = nullptr;
+
+	LRESULT res = _device->CreateCommittedResource(&heapprp,
+												   D3D12_HEAP_FLAG_NONE,
+												   &resdesc,
+												   D3D12_RESOURCE_STATE_GENERIC_READ,
+												   nullptr,
+												   IID_PPV_ARGS(&vertBuff));
+
+	if (FAILED(res))
+	{
+		OutputDebugString(TEXT("頂点バッファーの生成に失敗しました\n"));
+	}
+}
+
 void Engine::EnableDebugLayer()
 {
 	ID3D12Debug *debug = nullptr;
@@ -179,7 +213,7 @@ bool Engine::CreateCommandQueue()
 		return false;
 	}
 
-	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,_cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&_cmdList));
+	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&_cmdList));
 	if (FAILED(res))
 	{
 		OutputDebugString(TEXT("コマンドリストの作成に失敗\n"));
