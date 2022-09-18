@@ -1,6 +1,7 @@
 #include "Engine.h"
 #include "App.h"
 
+
 #ifdef _DEBUG
 #define OutputDebugFormatedString(str, ...)       \
 	{                                             \
@@ -70,25 +71,31 @@ bool RenderingEngine::SampleRender()
 	_cmdList->ClearRenderTargetView(_rtvH, clearColor, 0, nullptr);
 
 	//ポリゴンの描画
-	DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
-	vertics[0] = {-0.5f, -0.7f, 0.0f};
-	vertics[1] = {0.0f, 0.7f, 0.0f};
-	vertics[2] = {0.5f, -0.5f, 0.0f};
-	RenderPolygon(vertics, 3);
+	// DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
+	// vertics[0] = {-0.5f, -0.7f, 0.0f};
+	// vertics[1] = {0.0f, 0.7f, 0.0f};
+	// vertics[2] = {0.5f, -0.5f, 0.0f};
+	// RenderPolygon(vertics, 3);
 
-	DirectX::XMFLOAT3 *square = new DirectX::XMFLOAT3[4];
-	square[0] = {-0.4f, -0.7f, 0.0f};
-	square[1] = {-0.4f, 0.7f, 0.0f};
-	square[2] = {0.4f, -0.7f, 0.0f};
-	square[3] = {0.4f, 0.7f, 0.0f};
-	RenderPolygon(square, 4);
+	// DirectX::XMFLOAT3 *square = new DirectX::XMFLOAT3[4];
+	// square[0] = {-0.4f, -0.7f, 0.0f};
+	// square[1] = {-0.4f, 0.7f, 0.0f};
+	// square[2] = {0.4f, -0.7f, 0.0f};
+	// square[3] = {0.4f, 0.7f, 0.0f};
+	// RenderPolygon(square, 4);
 
+	Vertex *vertices = new Vertex[4];
+	vertices[0] = {{-0.4f, -0.7f, 0.0f}, {0.0f, 1.0f}};
+	vertices[1] = {{-0.4f, 0.7f, 0.0f}, {0.0f, 0.0f}};
+	vertices[2] = {{0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}};
+	vertices[3] = {{0.4f, 0.7f, 0.0f}, {1.0f, 0.0f}};
+	RenderPolygon(vertices, 4);
 	endRender();
 
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
+bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum)
 {
 	//ポリゴンの描画
 	//頂点バッファの作成
@@ -100,7 +107,7 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 
 	D3D12_RESOURCE_DESC resdesc = {};
 	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resdesc.Width = sizeof(vertics[0]) * vertNum;
+	resdesc.Width = sizeof(vertices[0]) * vertNum;
 	resdesc.Height = 1;
 	resdesc.DepthOrArraySize = 1;
 	resdesc.MipLevels = 1;
@@ -124,7 +131,7 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 		return false;
 	}
 
-	DirectX::XMFLOAT3 *vertMap = nullptr;
+	Vertex *vertMap = nullptr;
 	res = vertBuff->Map(0, nullptr, (void **)&vertMap);
 
 	if (FAILED(res))
@@ -135,7 +142,7 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 
 	int num = 0;
 
-	std::copy(vertics, vertics + vertNum, vertMap);
+	std::copy(vertices, vertices + vertNum, vertMap);
 
 	vertBuff->Unmap(0, nullptr);
 
@@ -143,8 +150,8 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
 
-	vbView.StrideInBytes = sizeof(vertics[0]);
-	vbView.SizeInBytes = sizeof(vertics[0]) * vertNum;
+	vbView.StrideInBytes = sizeof(vertices[0]);
+	vbView.SizeInBytes = sizeof(vertices[0]) * vertNum;
 
 	D3D12_INDEX_BUFFER_VIEW ibView = {};
 	//頂点が4つならインデックスバッファーを作成

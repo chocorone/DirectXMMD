@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <wchar.h>
 #include "ComPtr.h"
+#include "ShaderStruct.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -43,7 +44,7 @@ private:
 public:
 	bool Init(HWND hwnd);
 	bool SampleRender();
-	bool RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum);
+	bool RenderPolygon(Vertex *vertices, int vertNum);
 
 private:
 	bool CreateDevice(); //デバイス生成用関数

@@ -137,6 +137,7 @@
     <ClInclude Include="ComPtr.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ShaderStruct.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\DirectXTest\DirectXTest\icon.ico" />
