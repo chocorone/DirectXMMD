@@ -7,14 +7,15 @@
 #include <vector>
 #include <string>
 #include <DirectXMath.h>
+#include <d3dcompiler.h>
 #include "ComPtr.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 class Engine
 {
-	//�ϐ��̒�`
 public:
 	enum
 	{
@@ -31,17 +32,17 @@ private:
 	ComPtr<ID3D12DescriptorHeap> _rtvHeaps = nullptr;
 	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT] = {nullptr};
 	ComPtr<ID3D12Fence> _fence = nullptr;
+	ComPtr<ID3D12PipelineState> _pipelineState = nullptr;
 	UINT _fenceVal = 0;
 	D3D_FEATURE_LEVEL featureLevel;
 
-	//�֐��̒�`
 public:
-	bool Init(HWND hwnd); //�G���W��������
+	bool Init(HWND hwnd);
 	void SampleRender();
-	bool SanmplePolygonRender(DirectX::XMFLOAT3* vertics);
+	bool SanmplePolygonRender(DirectX::XMFLOAT3 *vertics);
 
-private:				 // DirectX12�������Ɏg���֐�
-	bool CreateDevice(); //�f�o�C�X�𐶐�
+private:
+	bool CreateDevice();
 	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);

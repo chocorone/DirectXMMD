@@ -5,19 +5,19 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lpar
 {
 	switch (msg)
 	{
-	//ƒEƒBƒ“ƒhƒE‚ª”jŠü‚³‚ê‚½‚ç
+	//ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ãŒç ´æ£„ã•ã‚ŒãŸã‚‰
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		break;
 	case WM_DESTROY:
-		OutputDebugString(TEXT("I—¹\n"));
+		OutputDebugString(TEXT("çµ‚äº†\n"));
 		PostQuitMessage(0);
 		return 0;
 	default:
 		return DefWindowProc(hWnd, msg, wparam, lparam);
 	}
 
-	//‹K’è‚Ìˆ—‚ðs‚¤
+	//è¦å®šã®å‡¦ç†ã‚’è¡Œã†
 	return 0;
 }
 
@@ -26,7 +26,7 @@ void MainLoop()
 	MSG msg = {};
 	while (true)
 	{
-		//ƒEƒBƒ“ƒhƒE‚ªI—¹‚µ‚Ä‚¢‚È‚¯‚ê‚Î‰ñ‚·
+		//ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ãŒçµ‚äº†ã—ã¦ã„ãªã‘ã‚Œã°å›žã™
 		if (msg.message != WM_QUIT)
 		{
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -45,19 +45,19 @@ void MainLoop()
 
 HWND InitWindow(const TCHAR *appName)
 {
-	//ƒEƒBƒ“ƒhƒEƒNƒ‰ƒX‚Ì¶¬
+	//ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚¯ãƒ©ã‚¹ã®ç”Ÿæˆ
 	WNDCLASSEX w = {};
 
 	w.cbSize = sizeof(WNDCLASSEX);
-	w.lpfnWndProc = (WNDPROC)WindowProcedure; //ƒR[ƒ‹ƒoƒbƒN‚Ì“o˜^
+	w.lpfnWndProc = (WNDPROC)WindowProcedure; //ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã®ç™»éŒ²
 	w.lpszClassName = appName;
-	w.hInstance = GetModuleHandle(nullptr); //ƒnƒ“ƒhƒ‹‚ÌŽæ“¾
+	w.hInstance = GetModuleHandle(nullptr); //ãƒãƒ³ãƒ‰ãƒ«ã®å–å¾—
 	w.hIcon = LoadIcon(w.hInstance, MAKEINTRESOURCE(101));
 	// w.hIconSm = LoadIcon(w.hInstance, MAKEINTRESOURCE(101));
-	RegisterClassEx(&w); //ƒEƒBƒ“ƒhƒEƒNƒ‰ƒX‚ÌŽw’è‚ðOS‚É“`‚¦‚é
+	RegisterClassEx(&w); //ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚¯ãƒ©ã‚¹ã®æŒ‡å®šã‚’OSã«ä¼ãˆã‚‹
 
 	RECT wrc = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
-	//ƒEƒBƒ“ƒhƒEƒTƒCƒY‚ðŒˆ‚ß‚é
+	//ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚ºã‚’æ±ºã‚ã‚‹
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
 
 	HWND hwnd = CreateWindow(w.lpszClassName,
@@ -65,12 +65,12 @@ HWND InitWindow(const TCHAR *appName)
 							 WS_OVERLAPPEDWINDOW,
 							 CW_USEDEFAULT,
 							 CW_USEDEFAULT,
-							 wrc.right - wrc.left, //ƒEƒBƒ“ƒhƒE•
-							 wrc.bottom - wrc.top, //ƒEƒBƒ“ƒhƒE‚‚³
-							 nullptr,			   //eƒEƒBƒ“ƒhƒE
-							 nullptr,			   //ƒƒjƒ…[ƒnƒ“ƒhƒ‹
-							 w.hInstance,		   //ŒÄ‚Ño‚µƒAƒvƒŠƒP[ƒVƒ‡ƒ“
-							 nullptr);			   //’Ç‰Áƒpƒ‰ƒ[ƒ^[
+							 wrc.right - wrc.left, //ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦å¹…
+							 wrc.bottom - wrc.top, //ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦é«˜ã•
+							 nullptr,			   //è¦ªã‚¦ã‚£ãƒ³ãƒ‰ã‚¦
+							 nullptr,			   //ãƒ¡ãƒ‹ãƒ¥ãƒ¼ãƒãƒ³ãƒ‰ãƒ«
+							 w.hInstance,		   //å‘¼ã³å‡ºã—ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³
+							 nullptr);			   //è¿½åŠ ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼
 
 	ShowWindow(hwnd, SW_SHOW);
 
@@ -79,7 +79,7 @@ HWND InitWindow(const TCHAR *appName)
 	return hwnd;
 }
 
-void StartApp(const TCHAR* appName)
+void StartApp(const TCHAR *appName)
 {
 	HWND hwnd = InitWindow(appName);
 	g_Engine = new Engine();
@@ -97,10 +97,10 @@ void StartApp(const TCHAR* appName)
 		{1.0f, -1.0f, 0.0f},
 	};*/
 
-	DirectX::XMFLOAT3* vertics = new DirectX::XMFLOAT3[3];
-	vertics[0] = { -1.0f, -1.0f, 0.0f };
-	vertics[1] = { -1.0f, 1.0f, 0.0f };
-	vertics[2] = { 1.0f, -1.0f, 0.0f };
+	DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
+	vertics[0] = {-1.0f, -1.0f, 0.0f};
+	vertics[1] = {-1.0f, 1.0f, 0.0f};
+	vertics[2] = {1.0f, -1.0f, 0.0f};
 
 	g_Engine->SanmplePolygonRender(vertics);
 

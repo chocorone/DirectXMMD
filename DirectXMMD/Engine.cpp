@@ -9,51 +9,51 @@ bool Engine::Init(HWND hwnd)
 	EnableDebugLayer();
 #endif
 
-	OutputDebugString(TEXT("D3D�̏�������\n"));
+	OutputDebugString(TEXT("D3Dの初期化中\n"));
 	if (!CreateDevice())
 	{
-		OutputDebugString(TEXT("�f�o�C�X�̐����Ɏ��s\n"));
+		OutputDebugString(TEXT("デバイスの生成に失敗\n"));
 		return false;
 	}
 
 	if (!CreateDXGIFactory())
 	{
-		OutputDebugString(TEXT("�A�_�v�^�[�̐ݒ�Ɏ��s\n"));
+		OutputDebugString(TEXT("アダプターの設定に失敗\n"));
 		return false;
 	}
 
 	if (!CreateCommandQueue())
 	{
-		OutputDebugString(TEXT("�R�}���h�L���[�̐����Ɏ��s\n"));
+		OutputDebugString(TEXT("コマンドキューの生成に失敗\n"));
 		return false;
 	}
 
 	if (!CreateSwapChain(hwnd))
 	{
-		OutputDebugString(TEXT("�X���b�v�`�F�[���̐����Ɏ��s\n"));
+		OutputDebugString(TEXT("スワップチェーンの生成に失敗\n"));
 		return false;
 	}
 
 	if (!CreateDescriptorHeap())
 	{
-		OutputDebugString(TEXT("�f�B�X�N���v�^�q�[�v�̐����Ɏ��s\n"));
+		OutputDebugString(TEXT("ディスクリプタヒープの生成に失敗\n"));
 		return false;
 	}
 	if (!CreateFence())
 	{
-		OutputDebugString(TEXT("�t�F���X�̐����Ɏ��s\n"));
+		OutputDebugString(TEXT("フェンスの生成に失敗\n"));
 		return false;
 	}
 
-	OutputDebugString(TEXT("D3D�̏������ɐ���\n"));
+	OutputDebugString(TEXT("D3Dの初期化に成功\n"));
 
 	return true;
 }
 
 void Engine::SampleRender()
 {
-	//�X���b�v�`�F�[���̓���m�F
-	//���݂̃o�b�t�@�������_�[�^�[�Q�b�g�r���[�Ɏw��
+	//スワップチェーンの動作確認
+	//現在のバッファをレンダーターゲットビューに指定
 	_cmdAllocator->Reset();
 	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
 	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
@@ -61,7 +61,7 @@ void Engine::SampleRender()
 	rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
 							  D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-	//�����Ƀ��\�[�X�o���A�̐ݒ�
+	//ここにリソースバリアの設定
 	D3D12_RESOURCE_BARRIER barriorDesc = {};
 	barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -74,7 +74,7 @@ void Engine::SampleRender()
 
 	_cmdList->OMSetRenderTargets(1, &rtvH, true, nullptr);
 
-	//�R�}���h���X�g�̍쐬
+	//コマンドリストの作成
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
 
@@ -99,12 +99,13 @@ void Engine::SampleRender()
 	_cmdAllocator->Reset();
 	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
 
-	//�t���b�v
+	//フリップ
 	_swapchain->Present(1, 0);
 }
 
 bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 {
+	//頂点バッファの作成
 	D3D12_HEAP_PROPERTIES heapprp = {};
 
 	heapprp.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -133,7 +134,7 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("���_�o�b�t�@�[�̐����Ɏ��s���܂���\n"));
+		OutputDebugString(TEXT("頂点バッファーの生成に失敗しました\n"));
 		return false;
 	}
 
@@ -142,14 +143,160 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("�}�b�v�̐����Ɏ��s���܂���\n"));
+		OutputDebugString(TEXT("マップの生成に失敗しました\n"));
 		return false;
 	}
 
-	std::copy(vertics, vertics + 3,vertMap);
+	std::copy(vertics, vertics + 3, vertMap);
 
-	vertBuff->Unmap(0,nullptr);
+	vertBuff->Unmap(0, nullptr);
 
+	D3D12_VERTEX_BUFFER_VIEW vbView = {};
+
+	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
+
+	vbView.SizeInBytes = sizeof(vertics);
+	vbView.StrideInBytes = sizeof(vertics[0]);
+
+	ID3DBlob *vsBlob = nullptr;
+	ID3DBlob *psBlob = nullptr;
+
+	ID3DBlob *errorBlob = nullptr;
+
+	res = D3DCompileFromFile(
+		L"BasicVertexShader.hlsl",
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"BasicVS",
+		"vs_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0,
+		&vsBlob,
+		&errorBlob);
+
+	if (FAILED(res))
+	{
+		if (errorBlob)
+		{
+			OutputDebugString(TEXT("頂点シェーダーコンパイルエラー:"));
+			OutputDebugStringA(static_cast<char *>(errorBlob->GetBufferPointer()));
+		}
+		return false;
+	}
+
+	res = D3DCompileFromFile(
+		L"BasicPixelShader.hlsl",
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"BasicPS",
+		"ps_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0,
+		&psBlob,
+		&errorBlob);
+
+	if (FAILED(res))
+	{
+		if (errorBlob)
+		{
+			OutputDebugString(TEXT("ピクセルシェーダーコンパイルエラー:"));
+			OutputDebugStringA(static_cast<char *>(errorBlob->GetBufferPointer()));
+		}
+		return false;
+	}
+
+	//頂点入力レイアウト
+	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
+		{"POSITION", 0,
+		 DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+		 D3D12_APPEND_ALIGNED_ELEMENT,
+		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
+	//グラフィックスパイプラインステートの作成
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
+
+	//ルートシグニチャの作成
+	D3D12_ROOT_SIGNATURE_DESC rootSignitureDesc = {};
+	rootSignitureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	ID3DBlob *rootSigBlob = nullptr;
+	res = D3D12SerializeRootSignature(
+		&rootSignitureDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1_0,
+		&rootSigBlob,
+		&errorBlob);
+	if (FAILED(res))
+	{
+		if (errorBlob)
+		{
+			OutputDebugString(TEXT("ルートシグニチャの生成に失敗:"));
+			OutputDebugStringA(static_cast<char *>(errorBlob->GetBufferPointer()));
+		}
+		return false;
+	}
+	ComPtr<ID3D12RootSignature> rootSignature = nullptr;
+	res = _device->CreateRootSignature(0,
+									   rootSigBlob->GetBufferPointer(),
+									   rootSigBlob->GetBufferSize(),
+									   IID_PPV_ARGS(&rootSignature));
+	rootSigBlob->Release();
+	gpipeline.pRootSignature = rootSignature.Get();
+
+	//シェーダーの設定
+	gpipeline.VS.pShaderBytecode = vsBlob->GetBufferPointer();
+	gpipeline.VS.BytecodeLength = vsBlob->GetBufferSize();
+	gpipeline.PS.pShaderBytecode = psBlob->GetBufferPointer();
+	gpipeline.PS.BytecodeLength = psBlob->GetBufferSize();
+
+	//サンプルマスクの設定
+	gpipeline.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	//アンチエイリアスの設定
+	gpipeline.RasterizerState.MultisampleEnable = false;
+	//カリングなし
+	gpipeline.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	//中身を塗りつぶす
+	gpipeline.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	//深度方向のクリッピング
+	gpipeline.RasterizerState.DepthClipEnable = true;
+
+	//ブレンドステートの設定
+	//αテストの有無
+	gpipeline.BlendState.AlphaToCoverageEnable = false;
+	//それぞれのレンダーゲットに別々のブレンドステートを割り当てるか
+	gpipeline.BlendState.IndependentBlendEnable = false;
+	D3D12_RENDER_TARGET_BLEND_DESC blenddesc = {};
+	//加算、乗算、αなどのブレンドを行うか
+	blenddesc.BlendEnable = false;
+	//論理演算するか
+	blenddesc.LogicOpEnable = false;
+	//書き込むときのマスク値
+	blenddesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	gpipeline.BlendState.RenderTarget[0] = blenddesc;
+
+	//入力レイアウトの指定
+	gpipeline.InputLayout.pInputElementDescs = inputLayout;
+	gpipeline.InputLayout.NumElements = _countof(inputLayout);
+	//カットなし
+	gpipeline.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+	//プリミティブトポロジの指定
+	gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	//レンダーターゲットの指定
+	gpipeline.NumRenderTargets = 1;
+	gpipeline.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
+
+	//アンチエイジングのサンプル数設定
+	gpipeline.SampleDesc.Count = 1;
+	gpipeline.SampleDesc.Quality = 0;
+
+	//グラフィックスパイプラインの作成
+	res = _device->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelineState));
+
+	if (SUCCEEDED(res))
+	{
+		OutputDebugString(TEXT("ok\n"));
+	}
 	return true;
 }
 
@@ -207,10 +354,10 @@ bool Engine::CreateDXGIFactory()
 	if (adapters.size() == 0)
 		return false;
 
-	//�Ƃ肠����1�߂�I��
+	//とりあえず1つめを選択
 	tmpAdapter = adapters[0];
 
-	//�����ŃA�_�v�^�[�̑I�����ł���
+	//ここでアダプターの選択ができる
 	/*for (auto adpt : adapters) {
 		DXGI_ADAPTER_DESC adesc = {};
 		adpt->GetDesc(&adesc);
@@ -225,21 +372,21 @@ bool Engine::CreateCommandQueue()
 	LRESULT res = _device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_cmdAllocator));
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("�R�}���h�A���P�[�^�[�̍쐬�Ɏ��s\n"));
+		OutputDebugString(TEXT("コマンドアロケーターの作成に失敗\n"));
 		return false;
 	}
 
 	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&_cmdList));
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("�R�}���h���X�g�̍쐬�Ɏ��s\n"));
+		OutputDebugString(TEXT("コマンドリストの作成に失敗\n"));
 		return false;
 	}
 	_cmdList->Close();
 
 	D3D12_COMMAND_QUEUE_DESC desc = {};
 
-	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; //�^�C���A�E�g�Ȃ�
+	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE; //タイムアウトなし
 	desc.NodeMask = 0;
 	desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
 	desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -247,7 +394,7 @@ bool Engine::CreateCommandQueue()
 
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("�R�}���h�L���[�̍쐬�Ɏ��s\n"));
+		OutputDebugString(TEXT("コマンドキューの作成に失敗\n"));
 		return false;
 	}
 
