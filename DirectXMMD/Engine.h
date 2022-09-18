@@ -58,6 +58,7 @@ private:
 	void endRender();
 	void CreateViewports();
 	void CreateScissorRect();
+	bool CreateGraphicsPipelineState();
 };
 
 extern RenderingEngine *g_Engine;

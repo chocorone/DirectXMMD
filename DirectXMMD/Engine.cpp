@@ -232,6 +232,15 @@ bool RenderingEngine::beginRender()
 	//レンダーターゲットビューにセット
 	_cmdList->OMSetRenderTargets(1, &_rtvH, true, nullptr);
 
+	CreateGraphicsPipelineState();
+	CreateViewports();
+	CreateScissorRect();
+	return true;
+}
+
+bool RenderingEngine::CreateGraphicsPipelineState()
+{
+
 	ID3DBlob *vsBlob = nullptr;
 	ID3DBlob *psBlob = nullptr;
 
@@ -366,12 +375,15 @@ bool RenderingEngine::beginRender()
 
 	//グラフィックスパイプラインの作成
 	res = _device->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelineState));
-
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("グラフィックスパイプラインの作成に失敗\n");
+		return false;
+	}
 	//コマンドリストに追加
 	_cmdList->SetPipelineState(_pipelineState.Get());
 	_cmdList->SetGraphicsRootSignature(rootSignature.Get());
-	CreateViewports();
-	CreateScissorRect();
+	return true;
 }
 
 void RenderingEngine::CreateViewports()
