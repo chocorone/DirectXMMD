@@ -55,7 +55,7 @@ void Engine::SampleRender()
 	//スワップチェーンの動作確認
 	//現在のバッファをレンダーターゲットビューに指定
 	_cmdAllocator->Reset();
-	_cmdList->Reset(_cmdAllocator, nullptr);
+	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
 	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
 	auto rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
 	rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
@@ -65,7 +65,7 @@ void Engine::SampleRender()
 	D3D12_RESOURCE_BARRIER barriorDesc = {};
 	barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barriorDesc.Transition.pResource = backBuffers[bbIndex];
+	barriorDesc.Transition.pResource = backBuffers[bbIndex].Get();
 	barriorDesc.Transition.Subresource = 0;
 
 	barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
@@ -83,10 +83,10 @@ void Engine::SampleRender()
 	_cmdList->ResourceBarrier(1, &barriorDesc);
 
 	_cmdList->Close();
-	ID3D12CommandList *cmdLists[] = {_cmdList};
+	ID3D12CommandList *cmdLists[] = {_cmdList.Get()};
 	_cmdQueue->ExecuteCommandLists(1, cmdLists);
 
-	_cmdQueue->Signal(_fence, ++_fenceVal);
+	_cmdQueue->Signal(_fence.Get(), ++_fenceVal);
 	if (_fence->GetCompletedValue() != _fenceVal)
 	{
 		auto event = CreateEvent(nullptr, false, false, nullptr);
@@ -97,7 +97,7 @@ void Engine::SampleRender()
 		CloseHandle(event);
 	}
 	_cmdAllocator->Reset();
-	_cmdList->Reset(_cmdAllocator, nullptr);
+	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
 
 	//フリップ
 	_swapchain->Present(1, 0);
@@ -179,7 +179,7 @@ bool Engine::CreateCommandQueue()
 		return false;
 	}
 
-	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _cmdAllocator, nullptr, IID_PPV_ARGS(&_cmdList));
+	res = _device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,_cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&_cmdList));
 	if (FAILED(res))
 	{
 		OutputDebugString(TEXT("コマンドリストの作成に失敗\n"));
@@ -226,12 +226,12 @@ bool Engine::CreateSwapChain(HWND hWnd)
 	desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 	LRESULT res = _dxgiFactory->CreateSwapChainForHwnd(
-		_cmdQueue,
+		_cmdQueue.Get(),
 		hWnd,
 		&desc,
 		nullptr,
 		nullptr,
-		(IDXGISwapChain1 **)&_swapchain);
+		(IDXGISwapChain1 **)_swapchain.GetAddressOf());
 
 	return SUCCEEDED(res);
 }
@@ -255,8 +255,6 @@ bool Engine::CreateDescriptorHeap()
 	if (FAILED(res))
 		return false;
 
-	backBuffers.resize(swc_desc.BufferCount);
-
 	for (int i = 0; i < swc_desc.BufferCount; i++)
 	{
 		res = _swapchain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
@@ -267,7 +265,7 @@ bool Engine::CreateDescriptorHeap()
 
 		handle.ptr += i * _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-		_device->CreateRenderTargetView(backBuffers[i], nullptr, handle);
+		_device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, handle);
 	}
 
 	return SUCCEEDED(res);
