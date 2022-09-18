@@ -8,13 +8,15 @@
 #include <string>
 #include <DirectXMath.h>
 #include <d3dcompiler.h>
+#include <stdio.h>
+#include <wchar.h>
 #include "ComPtr.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
-class Engine
+class RenderingEngine
 {
 public:
 	enum
@@ -35,10 +37,12 @@ private:
 	ComPtr<ID3D12PipelineState> _pipelineState = nullptr;
 	UINT _fenceVal = 0;
 	D3D_FEATURE_LEVEL featureLevel;
+	D3D12_RESOURCE_BARRIER _barriorDesc = {};
+	D3D12_CPU_DESCRIPTOR_HANDLE _rtvH;
 
 public:
 	bool Init(HWND hwnd);
-	void SampleRender();
+	bool SampleRender();
 	bool SanmplePolygonRender(DirectX::XMFLOAT3 *vertics);
 
 private:
@@ -49,6 +53,8 @@ private:
 	bool CreateDescriptorHeap();
 	bool CreateFence();
 	void EnableDebugLayer();
+	void beginRender();
+	void endRender();
 };
 
-extern Engine *g_Engine;
+extern RenderingEngine *g_Engine;

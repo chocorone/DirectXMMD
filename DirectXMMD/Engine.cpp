@@ -1,9 +1,20 @@
 #include "Engine.h"
 #include "App.h"
 
-Engine *g_Engine;
+#ifdef _DEBUG
+#define OutputDebugFormatedString(str, ...)       \
+	{                                             \
+		TCHAR c[256];                             \
+		swprintf(c, 256, TEXT(str), __VA_ARGS__); \
+		OutputDebugString(c);                     \
+	}
+#else
+#define MyOutputDebugString(str, ...) // 空実装
+#endif
 
-bool Engine::Init(HWND hwnd)
+RenderingEngine *g_Engine;
+
+bool RenderingEngine::Init(HWND hwnd)
 {
 #ifdef _DEBUG
 	EnableDebugLayer();
@@ -50,61 +61,29 @@ bool Engine::Init(HWND hwnd)
 	return true;
 }
 
-void Engine::SampleRender()
+bool RenderingEngine::SampleRender()
 {
-	//スワップチェーンの動作確認
-	//現在のバッファをレンダーターゲットビューに指定
-	_cmdAllocator->Reset();
-	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
-	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
-	auto rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
-	rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
-							  D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	beginRender();
 
-	//ここにリソースバリアの設定
-	D3D12_RESOURCE_BARRIER barriorDesc = {};
-	barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barriorDesc.Transition.pResource = backBuffers[bbIndex].Get();
-	barriorDesc.Transition.Subresource = 0;
-
-	barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	_cmdList->ResourceBarrier(1, &barriorDesc);
-
-	_cmdList->OMSetRenderTargets(1, &rtvH, true, nullptr);
-
-	//コマンドリストの作成
+	//画面のクリア処理
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
-	_cmdList->ClearRenderTargetView(rtvH, clearColor, 0, nullptr);
+	_cmdList->ClearRenderTargetView(_rtvH, clearColor, 0, nullptr);
 
-	barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	_cmdList->ResourceBarrier(1, &barriorDesc);
+	//ポリゴンの描画
+	DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
+	vertics[0] = {-1.0f, -1.0f, 0.0f};
+	vertics[1] = {-1.0f, 1.0f, 0.0f};
+	vertics[2] = {1.0f, -1.0f, 0.0f};
+	SanmplePolygonRender(vertics);
 
-	_cmdList->Close();
-	ID3D12CommandList *cmdLists[] = {_cmdList.Get()};
-	_cmdQueue->ExecuteCommandLists(1, cmdLists);
-
-	_cmdQueue->Signal(_fence.Get(), ++_fenceVal);
-	if (_fence->GetCompletedValue() != _fenceVal)
-	{
-		auto event = CreateEvent(nullptr, false, false, nullptr);
-		_fence->SetEventOnCompletion(_fenceVal, event);
-
-		WaitForSingleObject(event, INFINITE);
-
-		CloseHandle(event);
-	}
-	_cmdAllocator->Reset();
-	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
-
-	//フリップ
-	_swapchain->Present(1, 0);
+	endRender();
+	
+	return true;
 }
 
-bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
+bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 {
+	//ポリゴンの描画
 	//頂点バッファの作成
 	D3D12_HEAP_PROPERTIES heapprp = {};
 
@@ -143,9 +122,11 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	if (FAILED(res))
 	{
-		OutputDebugString(TEXT("マップの生成に失敗しました\n"));
+		OutputDebugString(TEXT("マッピングに失敗しました\n"));
 		return false;
 	}
+
+	int num = 0;
 
 	std::copy(vertics, vertics + 3, vertMap);
 
@@ -155,8 +136,11 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
 
-	vbView.SizeInBytes = sizeof(vertics);
 	vbView.StrideInBytes = sizeof(vertics[0]);
+	vbView.SizeInBytes = sizeof(DirectX::XMFLOAT3) *3;
+
+	OutputDebugFormatedString("vertics %zu\n" , vbView.SizeInBytes);
+	OutputDebugFormatedString("vertics[0] %zu\n", vbView.StrideInBytes);
 
 	ID3DBlob *vsBlob = nullptr;
 	ID3DBlob *psBlob = nullptr;
@@ -208,7 +192,7 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 	//頂点入力レイアウト
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
 		{"POSITION", 0,
-		 DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+		 DXGI_FORMAT_R32G32B32_FLOAT, 0,
 		 D3D12_APPEND_ALIGNED_ELEMENT,
 		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
@@ -297,10 +281,40 @@ bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 	{
 		OutputDebugString(TEXT("ok\n"));
 	}
+
+	//ビューポートの作成
+	D3D12_VIEWPORT viewport = {};
+
+	//出力先の幅と高さ
+	viewport.Width = WINDOW_WIDTH;
+	viewport.Height = WINDOW_HEIGHT;
+	//出力先の左上座標
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	//深度の最大値・最小値
+	viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+
+	//シザー矩形の作成
+	D3D12_RECT scissorrect = {};
+	//切り抜き座標
+	scissorrect.top = 0;
+	scissorrect.left = 0;
+	scissorrect.right = scissorrect.left + WINDOW_WIDTH;
+	scissorrect.bottom = scissorrect.top + WINDOW_HEIGHT;
+
+	//コマンドリストに追加
+	_cmdList->SetPipelineState(_pipelineState.Get());
+	_cmdList->SetGraphicsRootSignature(rootSignature.Get());
+	_cmdList->RSSetViewports(1, &viewport);
+	_cmdList->RSSetScissorRects(1, &scissorrect);
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_cmdList->IASetVertexBuffers(0, 1, &vbView);
+	_cmdList->DrawInstanced(3, 1, 0, 0);
 	return true;
 }
 
-void Engine::EnableDebugLayer()
+void RenderingEngine::EnableDebugLayer()
 {
 	ID3D12Debug *debug = nullptr;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
@@ -310,7 +324,63 @@ void Engine::EnableDebugLayer()
 	}
 }
 
-bool Engine::CreateDevice()
+void RenderingEngine::beginRender()
+{
+	OutputDebugFormatedString("描画開始\n");
+	//スワップチェーンの動作確認
+	//現在のバッファをレンダーターゲットビューに指定
+	_cmdAllocator->Reset();
+	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
+	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
+	_rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
+	_rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
+		D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	//リソースバリアの設定
+	_barriorDesc = {};
+	_barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	_barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	_barriorDesc.Transition.pResource = backBuffers[bbIndex].Get();
+	_barriorDesc.Transition.Subresource = 0;
+	//レンダーターゲットとして設定
+	_barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	_barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_cmdList->ResourceBarrier(1, &_barriorDesc);
+
+	//レンダーターゲットビューにセット
+	_cmdList->OMSetRenderTargets(1, &_rtvH, true, nullptr);
+}
+
+void RenderingEngine::endRender()
+{
+	_barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+	_cmdList->ResourceBarrier(1, &_barriorDesc);
+
+	_cmdList->Close();
+	ID3D12CommandList* cmdLists[] = { _cmdList.Get() };
+	_cmdQueue->ExecuteCommandLists(1, cmdLists);
+
+	_cmdQueue->Signal(_fence.Get(), ++_fenceVal);
+	if (_fence->GetCompletedValue() != _fenceVal)
+	{
+		auto event = CreateEvent(nullptr, false, false, nullptr);
+		_fence->SetEventOnCompletion(_fenceVal, event);
+
+		WaitForSingleObject(event, INFINITE);
+
+		CloseHandle(event);
+	}
+	_cmdAllocator->Reset();
+	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
+
+	//フリップ
+	_swapchain->Present(1, 0);
+
+	OutputDebugString(L"描画完了\n");
+}
+
+bool RenderingEngine::CreateDevice()
 {
 	D3D_FEATURE_LEVEL levels[] = {
 		D3D_FEATURE_LEVEL_12_1,
@@ -332,7 +402,7 @@ bool Engine::CreateDevice()
 	return false;
 }
 
-bool Engine::CreateDXGIFactory()
+bool RenderingEngine::CreateDXGIFactory()
 {
 #ifdef _DEBUG
 	LRESULT res = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory));
@@ -367,7 +437,7 @@ bool Engine::CreateDXGIFactory()
 	return true;
 }
 
-bool Engine::CreateCommandQueue()
+bool RenderingEngine::CreateCommandQueue()
 {
 	LRESULT res = _device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_cmdAllocator));
 	if (FAILED(res))
@@ -401,7 +471,7 @@ bool Engine::CreateCommandQueue()
 	return true;
 }
 
-bool Engine::CreateSwapChain(HWND hWnd)
+bool RenderingEngine::CreateSwapChain(HWND hWnd)
 {
 	DXGI_SWAP_CHAIN_DESC1 desc = {};
 
@@ -433,7 +503,7 @@ bool Engine::CreateSwapChain(HWND hWnd)
 	return SUCCEEDED(res);
 }
 
-bool Engine::CreateDescriptorHeap()
+bool RenderingEngine::CreateDescriptorHeap()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
@@ -468,7 +538,7 @@ bool Engine::CreateDescriptorHeap()
 	return SUCCEEDED(res);
 }
 
-bool Engine::CreateFence()
+bool RenderingEngine::CreateFence()
 {
 	LRESULT res = _device->CreateFence(_fenceVal, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 
