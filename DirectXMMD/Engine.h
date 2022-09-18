@@ -43,7 +43,7 @@ private:
 public:
 	bool Init(HWND hwnd);
 	bool SampleRender();
-	bool SanmplePolygonRender(DirectX::XMFLOAT3 *vertics);
+	bool RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum);
 
 private:
 	bool CreateDevice();

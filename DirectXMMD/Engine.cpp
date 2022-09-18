@@ -69,19 +69,26 @@ bool RenderingEngine::SampleRender()
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(_rtvH, clearColor, 0, nullptr);
 
-	//ポリゴンの描画
-	DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
-	vertics[0] = {-1.0f, -1.0f, 0.0f};
-	vertics[1] = {-1.0f, 1.0f, 0.0f};
-	vertics[2] = {1.0f, -1.0f, 0.0f};
-	SanmplePolygonRender(vertics);
+	// //ポリゴンの描画
+	// DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
+	// vertics[0] = {-0.5f, -0.7f, 0.0f};
+	// vertics[1] = {0.0f, 0.7f, 0.0f};
+	// vertics[2] = {0.5f, -0.5f, 0.0f};
+	// RenderPolygon(vertics, 3);
+
+	DirectX::XMFLOAT3 *square = new DirectX::XMFLOAT3[4];
+	square[0] = {-0.4f, -0.7f, 0.0f};
+	square[1] = {-0.4f, 0.7f, 0.0f};
+	square[2] = {0.4f, -0.7f, 0.0f};
+	square[3] = {0.4f, 0.7f, 0.0f};
+	RenderPolygon(square, 4);
 
 	endRender();
-	
+
 	return true;
 }
 
-bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
+bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 {
 	//ポリゴンの描画
 	//頂点バッファの作成
@@ -93,7 +100,7 @@ bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	D3D12_RESOURCE_DESC resdesc = {};
 	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resdesc.Width = sizeof(vertics);
+	resdesc.Width = sizeof(vertics[0]) * vertNum;
 	resdesc.Height = 1;
 	resdesc.DepthOrArraySize = 1;
 	resdesc.MipLevels = 1;
@@ -128,7 +135,7 @@ bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 
 	int num = 0;
 
-	std::copy(vertics, vertics + 3, vertMap);
+	std::copy(vertics, vertics + vertNum, vertMap);
 
 	vertBuff->Unmap(0, nullptr);
 
@@ -137,10 +144,7 @@ bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
 
 	vbView.StrideInBytes = sizeof(vertics[0]);
-	vbView.SizeInBytes = sizeof(DirectX::XMFLOAT3) *3;
-
-	OutputDebugFormatedString("vertics %zu\n" , vbView.SizeInBytes);
-	OutputDebugFormatedString("vertics[0] %zu\n", vbView.StrideInBytes);
+	vbView.SizeInBytes = sizeof(vertics[0]) * vertNum;
 
 	ID3DBlob *vsBlob = nullptr;
 	ID3DBlob *psBlob = nullptr;
@@ -187,6 +191,36 @@ bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 			OutputDebugStringA(static_cast<char *>(errorBlob->GetBufferPointer()));
 		}
 		return false;
+	}
+
+	D3D12_INDEX_BUFFER_VIEW ibView = {};
+	//頂点が4つならインデックスバッファーを作成
+	if (vertNum == 4)
+	{
+		//バッファー作成
+		unsigned short indices[] = {
+			0, 1, 2,
+			2, 1, 3};
+		ID3D12Resource *idxBuff = nullptr;
+		resdesc.Width = sizeof(indices);
+		res = _device->CreateCommittedResource(
+			&heapprp,
+			D3D12_HEAP_FLAG_NONE,
+			&resdesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&idxBuff));
+
+		unsigned short *mappedIdx = nullptr;
+		idxBuff->Map(0, nullptr, (void **)&mappedIdx);
+		std::copy(indices, indices + 6, mappedIdx);
+		idxBuff->Unmap(0, nullptr);
+
+		//インデックスバッファービューを作成
+
+		ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
+		ibView.Format = DXGI_FORMAT_R16_UINT;
+		ibView.SizeInBytes = sizeof(indices);
 	}
 
 	//頂点入力レイアウト
@@ -310,7 +344,15 @@ bool RenderingEngine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 	_cmdList->RSSetScissorRects(1, &scissorrect);
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	_cmdList->IASetVertexBuffers(0, 1, &vbView);
-	_cmdList->DrawInstanced(3, 1, 0, 0);
+	if (vertNum == 3)
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	else if (vertNum == 4)
+	{
+		_cmdList->IASetIndexBuffer(&ibView);
+		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+	}
+
+	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
 	return true;
 }
 
@@ -334,7 +376,7 @@ void RenderingEngine::beginRender()
 	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
 	_rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
 	_rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+							   D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	//リソースバリアの設定
 	_barriorDesc = {};
@@ -358,7 +400,7 @@ void RenderingEngine::endRender()
 	_cmdList->ResourceBarrier(1, &_barriorDesc);
 
 	_cmdList->Close();
-	ID3D12CommandList* cmdLists[] = { _cmdList.Get() };
+	ID3D12CommandList *cmdLists[] = {_cmdList.Get()};
 	_cmdQueue->ExecuteCommandLists(1, cmdLists);
 
 	_cmdQueue->Signal(_fence.Get(), ++_fenceVal);
@@ -406,6 +448,7 @@ bool RenderingEngine::CreateDXGIFactory()
 {
 #ifdef _DEBUG
 	LRESULT res = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&_dxgiFactory));
+	// LRESULT res = CreateDXGIFactory1(IID_PPV_ARGS(&_dxgiFactory));
 #else
 	LRESULT res = CreateDXGIFactory1(IID_PPV_ARGS(&_dxgiFactory));
 #endif
