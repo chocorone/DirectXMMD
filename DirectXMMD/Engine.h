@@ -46,15 +46,18 @@ public:
 	bool RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum);
 
 private:
-	bool CreateDevice();
+	bool CreateDevice(); //デバイス生成用関数
 	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);
 	bool CreateDescriptorHeap();
 	bool CreateFence();
+
 	void EnableDebugLayer();
-	void beginRender();
+	bool beginRender();
 	void endRender();
+	void CreateViewports();
+	void CreateScissorRect();
 };
 
 extern RenderingEngine *g_Engine;

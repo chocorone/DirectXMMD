@@ -69,12 +69,12 @@ bool RenderingEngine::SampleRender()
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(_rtvH, clearColor, 0, nullptr);
 
-	// //ポリゴンの描画
-	// DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
-	// vertics[0] = {-0.5f, -0.7f, 0.0f};
-	// vertics[1] = {0.0f, 0.7f, 0.0f};
-	// vertics[2] = {0.5f, -0.5f, 0.0f};
-	// RenderPolygon(vertics, 3);
+	//ポリゴンの描画
+	DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
+	vertics[0] = {-0.5f, -0.7f, 0.0f};
+	vertics[1] = {0.0f, 0.7f, 0.0f};
+	vertics[2] = {0.5f, -0.5f, 0.0f};
+	RenderPolygon(vertics, 3);
 
 	DirectX::XMFLOAT3 *square = new DirectX::XMFLOAT3[4];
 	square[0] = {-0.4f, -0.7f, 0.0f};
@@ -146,12 +146,98 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 	vbView.StrideInBytes = sizeof(vertics[0]);
 	vbView.SizeInBytes = sizeof(vertics[0]) * vertNum;
 
+	D3D12_INDEX_BUFFER_VIEW ibView = {};
+	//頂点が4つならインデックスバッファーを作成
+	if (vertNum == 4)
+	{
+		//バッファー作成
+		unsigned short indices[] = {
+			0, 1, 2,
+			2, 1, 3};
+		ID3D12Resource *idxBuff = nullptr;
+		resdesc.Width = sizeof(indices);
+		res = _device->CreateCommittedResource(
+			&heapprp,
+			D3D12_HEAP_FLAG_NONE,
+			&resdesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&idxBuff));
+
+		unsigned short *mappedIdx = nullptr;
+		idxBuff->Map(0, nullptr, (void **)&mappedIdx);
+		std::copy(indices, indices + 6, mappedIdx);
+		idxBuff->Unmap(0, nullptr);
+
+		//インデックスバッファービューを作成
+
+		ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
+		ibView.Format = DXGI_FORMAT_R16_UINT;
+		ibView.SizeInBytes = sizeof(indices);
+	}
+
+	if (SUCCEEDED(res))
+	{
+		OutputDebugString(TEXT("ok\n"));
+	}
+
+	//コマンドリストに追加
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_cmdList->IASetVertexBuffers(0, 1, &vbView);
+	if (vertNum == 3)
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	else if (vertNum == 4)
+	{
+		_cmdList->IASetIndexBuffer(&ibView);
+		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+	}
+
+	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
+	return true;
+}
+
+void RenderingEngine::EnableDebugLayer()
+{
+	ID3D12Debug *debug = nullptr;
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
+	{
+		debug->EnableDebugLayer();
+		debug->Release();
+	}
+}
+
+bool RenderingEngine::beginRender()
+{
+	OutputDebugFormatedString("描画開始\n");
+	//スワップチェーンの動作確認
+	//現在のバッファをレンダーターゲットビューに指定
+	_cmdAllocator->Reset();
+	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
+	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
+	_rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
+	_rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
+							   D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	//リソースバリアの設定
+	_barriorDesc = {};
+	_barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	_barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	_barriorDesc.Transition.pResource = backBuffers[bbIndex].Get();
+	_barriorDesc.Transition.Subresource = 0;
+	//レンダーターゲットとして設定
+	_barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	_barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_cmdList->ResourceBarrier(1, &_barriorDesc);
+
+	//レンダーターゲットビューにセット
+	_cmdList->OMSetRenderTargets(1, &_rtvH, true, nullptr);
+
 	ID3DBlob *vsBlob = nullptr;
 	ID3DBlob *psBlob = nullptr;
 
 	ID3DBlob *errorBlob = nullptr;
 
-	res = D3DCompileFromFile(
+	LRESULT res = D3DCompileFromFile(
 		L"BasicVertexShader.hlsl",
 		nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE,
@@ -192,44 +278,6 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 		}
 		return false;
 	}
-
-	D3D12_INDEX_BUFFER_VIEW ibView = {};
-	//頂点が4つならインデックスバッファーを作成
-	if (vertNum == 4)
-	{
-		//バッファー作成
-		unsigned short indices[] = {
-			0, 1, 2,
-			2, 1, 3};
-		ID3D12Resource *idxBuff = nullptr;
-		resdesc.Width = sizeof(indices);
-		res = _device->CreateCommittedResource(
-			&heapprp,
-			D3D12_HEAP_FLAG_NONE,
-			&resdesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&idxBuff));
-
-		unsigned short *mappedIdx = nullptr;
-		idxBuff->Map(0, nullptr, (void **)&mappedIdx);
-		std::copy(indices, indices + 6, mappedIdx);
-		idxBuff->Unmap(0, nullptr);
-
-		//インデックスバッファービューを作成
-
-		ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
-		ibView.Format = DXGI_FORMAT_R16_UINT;
-		ibView.SizeInBytes = sizeof(indices);
-	}
-
-	//頂点入力レイアウト
-	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-		{"POSITION", 0,
-		 DXGI_FORMAT_R32G32B32_FLOAT, 0,
-		 D3D12_APPEND_ALIGNED_ELEMENT,
-		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	};
 
 	//グラフィックスパイプラインステートの作成
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
@@ -292,6 +340,14 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 
 	gpipeline.BlendState.RenderTarget[0] = blenddesc;
 
+	//頂点入力レイアウト
+	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
+		{"POSITION", 0,
+		 DXGI_FORMAT_R32G32B32_FLOAT, 0,
+		 D3D12_APPEND_ALIGNED_ELEMENT,
+		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
 	//入力レイアウトの指定
 	gpipeline.InputLayout.pInputElementDescs = inputLayout;
 	gpipeline.InputLayout.NumElements = _countof(inputLayout);
@@ -311,11 +367,15 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 	//グラフィックスパイプラインの作成
 	res = _device->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&_pipelineState));
 
-	if (SUCCEEDED(res))
-	{
-		OutputDebugString(TEXT("ok\n"));
-	}
+	//コマンドリストに追加
+	_cmdList->SetPipelineState(_pipelineState.Get());
+	_cmdList->SetGraphicsRootSignature(rootSignature.Get());
+	CreateViewports();
+	CreateScissorRect();
+}
 
+void RenderingEngine::CreateViewports()
+{
 	//ビューポートの作成
 	D3D12_VIEWPORT viewport = {};
 
@@ -328,7 +388,11 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 	//深度の最大値・最小値
 	viewport.MaxDepth = 1.0f;
 	viewport.MinDepth = 0.0f;
+	_cmdList->RSSetViewports(1, &viewport);
+}
 
+void RenderingEngine::CreateScissorRect()
+{
 	//シザー矩形の作成
 	D3D12_RECT scissorrect = {};
 	//切り抜き座標
@@ -337,60 +401,7 @@ bool RenderingEngine::RenderPolygon(DirectX::XMFLOAT3 *vertics, int vertNum)
 	scissorrect.right = scissorrect.left + WINDOW_WIDTH;
 	scissorrect.bottom = scissorrect.top + WINDOW_HEIGHT;
 
-	//コマンドリストに追加
-	_cmdList->SetPipelineState(_pipelineState.Get());
-	_cmdList->SetGraphicsRootSignature(rootSignature.Get());
-	_cmdList->RSSetViewports(1, &viewport);
 	_cmdList->RSSetScissorRects(1, &scissorrect);
-	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	_cmdList->IASetVertexBuffers(0, 1, &vbView);
-	if (vertNum == 3)
-		_cmdList->DrawInstanced(3, 1, 0, 0);
-	else if (vertNum == 4)
-	{
-		_cmdList->IASetIndexBuffer(&ibView);
-		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-	}
-
-	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
-	return true;
-}
-
-void RenderingEngine::EnableDebugLayer()
-{
-	ID3D12Debug *debug = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
-	{
-		debug->EnableDebugLayer();
-		debug->Release();
-	}
-}
-
-void RenderingEngine::beginRender()
-{
-	OutputDebugFormatedString("描画開始\n");
-	//スワップチェーンの動作確認
-	//現在のバッファをレンダーターゲットビューに指定
-	_cmdAllocator->Reset();
-	_cmdList->Reset(_cmdAllocator.Get(), nullptr);
-	auto bbIndex = _swapchain->GetCurrentBackBufferIndex();
-	_rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart();
-	_rtvH.ptr += bbIndex * _device->GetDescriptorHandleIncrementSize(
-							   D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	//リソースバリアの設定
-	_barriorDesc = {};
-	_barriorDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	_barriorDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	_barriorDesc.Transition.pResource = backBuffers[bbIndex].Get();
-	_barriorDesc.Transition.Subresource = 0;
-	//レンダーターゲットとして設定
-	_barriorDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	_barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	_cmdList->ResourceBarrier(1, &_barriorDesc);
-
-	//レンダーターゲットビューにセット
-	_cmdList->OMSetRenderTargets(1, &_rtvH, true, nullptr);
 }
 
 void RenderingEngine::endRender()
