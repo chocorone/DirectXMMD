@@ -79,7 +79,7 @@ HWND InitWindow(const TCHAR *appName)
 	return hwnd;
 }
 
-void StartApp(const TCHAR *appName)
+void StartApp(const TCHAR* appName)
 {
 	HWND hwnd = InitWindow(appName);
 	g_Engine = new Engine();
@@ -90,11 +90,17 @@ void StartApp(const TCHAR *appName)
 
 	g_Engine->SampleRender();
 
-	DirectX::XMFLOAT3 vertics[] = {
-		{-1.0f,-1.0f,0.0f},
-		{-1.0f,1.0f,0.0f},
-		{1.0f,-1.0f,0.0f},
-	};
+	/*DirectX::XMFLOAT3 vertics[]
+		= {
+		{-1.0f, -1.0f, 0.0f},
+		{-1.0f, 1.0f, 0.0f},
+		{1.0f, -1.0f, 0.0f},
+	};*/
+
+	DirectX::XMFLOAT3* vertics = new DirectX::XMFLOAT3[3];
+	vertics[0] = { -1.0f, -1.0f, 0.0f };
+	vertics[1] = { -1.0f, 1.0f, 0.0f };
+	vertics[2] = { 1.0f, -1.0f, 0.0f };
 
 	g_Engine->SanmplePolygonRender(vertics);
 

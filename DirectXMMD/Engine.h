@@ -14,31 +14,34 @@
 
 class Engine
 {
-//•Ï”‚Ì’è‹`
+	//ï¿½Ïï¿½ï¿½Ì’ï¿½`
 public:
-	enum { FRAME_BUFFER_COUNT = 2 };
+	enum
+	{
+		FRAME_BUFFER_COUNT = 2
+	};
 
 private:
 	ComPtr<ID3D12Device> _device = nullptr;
-	ComPtr<ID3D12GraphicsCommandList>_cmdList = nullptr;
+	ComPtr<ID3D12GraphicsCommandList> _cmdList = nullptr;
 	ComPtr<IDXGIFactory6> _dxgiFactory = nullptr;
 	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
 	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
 	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
 	ComPtr<ID3D12DescriptorHeap> _rtvHeaps = nullptr;
-	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT] = { nullptr };
+	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT] = {nullptr};
 	ComPtr<ID3D12Fence> _fence = nullptr;
 	UINT _fenceVal = 0;
 	D3D_FEATURE_LEVEL featureLevel;
 
-	//ŠÖ”‚Ì’è‹`
+	//ï¿½Öï¿½ï¿½Ì’ï¿½`
 public:
-	bool Init(HWND hwnd); //ƒGƒ“ƒWƒ“‰Šú‰»
+	bool Init(HWND hwnd); //ï¿½Gï¿½ï¿½ï¿½Wï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	void SampleRender();
-	void SanmplePolygonRender(DirectX::XMFLOAT3 vertics[]);
+	bool SanmplePolygonRender(DirectX::XMFLOAT3* vertics);
 
-private:				 // DirectX12‰Šú‰»‚Ég‚¤ŠÖ”
-	bool CreateDevice(); //ƒfƒoƒCƒX‚ğ¶¬
+private:				 // DirectX12ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Égï¿½ï¿½ï¿½Öï¿½
+	bool CreateDevice(); //ï¿½fï¿½oï¿½Cï¿½Xï¿½ğ¶ï¿½
 	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);

@@ -103,7 +103,7 @@ void Engine::SampleRender()
 	_swapchain->Present(1, 0);
 }
 
-void Engine::SanmplePolygonRender(DirectX::XMFLOAT3 vertics[])
+bool Engine::SanmplePolygonRender(DirectX::XMFLOAT3 *vertics)
 {
 	D3D12_HEAP_PROPERTIES heapprp = {};
 
@@ -134,7 +134,23 @@ void Engine::SanmplePolygonRender(DirectX::XMFLOAT3 vertics[])
 	if (FAILED(res))
 	{
 		OutputDebugString(TEXT("頂点バッファーの生成に失敗しました\n"));
+		return false;
 	}
+
+	DirectX::XMFLOAT3 *vertMap = nullptr;
+	res = vertBuff->Map(0, nullptr, (void **)&vertMap);
+
+	if (FAILED(res))
+	{
+		OutputDebugString(TEXT("マップの生成に失敗しました\n"));
+		return false;
+	}
+
+	std::copy(vertics, vertics + 3,vertMap);
+
+	vertBuff->Unmap(0,nullptr);
+
+	return true;
 }
 
 void Engine::EnableDebugLayer()
