@@ -40,7 +40,12 @@ private:
 	UINT _fenceVal = 0;
 	D3D_FEATURE_LEVEL featureLevel;
 	D3D12_RESOURCE_BARRIER _barriorDesc = {};
-	D3D12_CPU_DESCRIPTOR_HANDLE _rtvH;
+	D3D12_CPU_DESCRIPTOR_HANDLE _nowRTVDescripterHandle;
+	ComPtr<ID3D12RootSignature> _rootSignature = nullptr;
+
+	const unsigned short indices[6] = {
+		0, 1, 2,
+		2, 1, 3};
 
 public:
 	bool Init(HWND hwnd);
@@ -49,10 +54,9 @@ public:
 
 private:
 	bool CreateDevice(); //デバイス生成用関数
-	bool CreateDXGIFactory();
 	bool CreateCommandQueue();
 	bool CreateSwapChain(HWND hWnd);
-	bool CreateDescriptorHeap();
+	bool CreateRTV();
 	bool CreateFence();
 
 	void EnableDebugLayer();
@@ -61,6 +65,10 @@ private:
 	void CreateViewports();
 	void CreateScissorRect();
 	bool CreateGraphicsPipelineState();
+	bool CreateRootSignature();
+
+	bool CreateVertexBufferView(const Vertex* vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW* vbView);
+	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW* ibView);
 };
 
 extern RenderingEngine *g_Engine;
