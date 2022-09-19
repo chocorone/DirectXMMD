@@ -202,6 +202,9 @@ bool RenderingEngine::CreateRTV()
 	if (FAILED(res))
 		return false;
 
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 	for (int i = 0; i < swc_desc.BufferCount; i++)
 	{
 		res = _swapchain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
@@ -212,7 +215,7 @@ bool RenderingEngine::CreateRTV()
 
 		handle.ptr += i * _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-		_device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, handle);
+		_device->CreateRenderTargetView(backBuffers[i].Get(), &rtvDesc, handle);
 	}
 
 	return SUCCEEDED(res);
@@ -714,7 +717,7 @@ bool RenderingEngine::CreateTexShaderResourceView(std::vector<TexRGBA> texData)
 	return true;
 }
 
-bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image* img)
+bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image *img)
 {
 	// WriteToSubresourceで転送するためのヒープ設定
 	D3D12_HEAP_PROPERTIES heapProp = {};
@@ -791,7 +794,7 @@ bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, 
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img)
+bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
 {
 	//頂点バッファービューの作成
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
@@ -812,7 +815,7 @@ bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexM
 		}
 	}
 
-	if (!CreateTexShaderResourceView(texData,img))
+	if (!CreateTexShaderResourceView(texData, img))
 	{
 		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
 		return false;
@@ -893,20 +896,21 @@ bool RenderingEngine::SampleRender()
 
 	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
 
-	if (FAILED(res)) {
+	if (FAILED(res))
+	{
 		OutputDebugFormatedString("テクスチャの読み込みに失敗");
 	}
 	auto img = scratchImg.GetImage(0, 0, 0);
 
 	std::vector<TexRGBA> texData(256 * 256);
-	for (int i= 0;i<256*256;i++)
+	for (int i = 0; i < 256 * 256; i++)
 	{
 		texData[i].R = i / 256;
 		texData[i].G = i % 256;
 		texData[i].B = 255;
 		texData[i].A = 255;
 	}
-	if (!RenderPolygon(vertices, 4, metadata,img))
+	if (!RenderPolygon(vertices, 4, metadata, img))
 	{
 		OutputDebugFormatedString("ポリゴンのレンダリングに失敗\n");
 		return false;
