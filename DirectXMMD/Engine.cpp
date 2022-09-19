@@ -1,7 +1,6 @@
 #include "Engine.h"
 #include "App.h"
 
-
 #ifdef _DEBUG
 #define OutputDebugFormatedString(str, ...)       \
 	{                                             \
@@ -71,31 +70,27 @@ bool RenderingEngine::SampleRender()
 	_cmdList->ClearRenderTargetView(_rtvH, clearColor, 0, nullptr);
 
 	//ポリゴンの描画
-	// DirectX::XMFLOAT3 *vertics = new DirectX::XMFLOAT3[3];
-	// vertics[0] = {-0.5f, -0.7f, 0.0f};
-	// vertics[1] = {0.0f, 0.7f, 0.0f};
-	// vertics[2] = {0.5f, -0.5f, 0.0f};
-	// RenderPolygon(vertics, 3);
-
-	// DirectX::XMFLOAT3 *square = new DirectX::XMFLOAT3[4];
-	// square[0] = {-0.4f, -0.7f, 0.0f};
-	// square[1] = {-0.4f, 0.7f, 0.0f};
-	// square[2] = {0.4f, -0.7f, 0.0f};
-	// square[3] = {0.4f, 0.7f, 0.0f};
-	// RenderPolygon(square, 4);
-
 	Vertex *vertices = new Vertex[4];
 	vertices[0] = {{-0.4f, -0.7f, 0.0f}, {0.0f, 1.0f}};
 	vertices[1] = {{-0.4f, 0.7f, 0.0f}, {0.0f, 0.0f}};
 	vertices[2] = {{0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}};
 	vertices[3] = {{0.4f, 0.7f, 0.0f}, {1.0f, 0.0f}};
-	RenderPolygon(vertices, 4);
+
+	std::vector<TexRGBA> texData(256 * 256);
+	for (auto &rgba : texData)
+	{
+		rgba.R = rand() % 256;
+		rgba.G = rand() % 256;
+		rgba.B = rand() % 256;
+		rgba.A = 255;
+	}
+	RenderPolygon(vertices, 4, texData);
 	endRender();
 
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum)
+bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData)
 {
 	//ポリゴンの描画
 	//頂点バッファの作成
@@ -362,7 +357,10 @@ bool RenderingEngine::CreateGraphicsPipelineState()
 		 DXGI_FORMAT_R32G32B32_FLOAT, 0,
 		 D3D12_APPEND_ALIGNED_ELEMENT,
 		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	};
+		{"TEXCOORD", 0,
+		 DXGI_FORMAT_R32G32_FLOAT, 0,
+		 D3D12_APPEND_ALIGNED_ELEMENT,
+		 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 
 	//入力レイアウトの指定
 	gpipeline.InputLayout.pInputElementDescs = inputLayout;

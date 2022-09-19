@@ -3,8 +3,13 @@
 #include <DirectXMath.h>
 #include "ComPtr.h"
 
-struct Vertex 
+struct Vertex
 {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT2 uv;
+};
+
+struct TexRGBA
+{
+	unsigned char R, G, B, A;
 };

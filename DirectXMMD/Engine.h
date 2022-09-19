@@ -33,6 +33,7 @@ private:
 	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
 	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
 	ComPtr<ID3D12DescriptorHeap> _rtvHeaps = nullptr;
+	ComPtr<ID3D12DescriptorHeap> _texDescHeap = nullptr;
 	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT] = {nullptr};
 	ComPtr<ID3D12Fence> _fence = nullptr;
 	ComPtr<ID3D12PipelineState> _pipelineState = nullptr;
@@ -44,7 +45,7 @@ private:
 public:
 	bool Init(HWND hwnd);
 	bool SampleRender();
-	bool RenderPolygon(Vertex *vertices, int vertNum);
+	bool RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData);
 
 private:
 	bool CreateDevice(); //デバイス生成用関数
