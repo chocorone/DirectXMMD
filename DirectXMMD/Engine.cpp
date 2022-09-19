@@ -319,7 +319,7 @@ bool RenderingEngine::CreateRootSignature()
 	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[0].BaseShaderRegister = 0;
 	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	
+
 	//定数バッファ用
 	descTblRange[1].NumDescriptors = 1;
 	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -330,7 +330,7 @@ bool RenderingEngine::CreateRootSignature()
 	D3D12_ROOT_PARAMETER rootparam[2] = {};
 	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootparam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootparam[0].DescriptorTable.pDescriptorRanges = &descTblRange[0];
+	rootparam[0].DescriptorTable.pDescriptorRanges = descTblRange;
 	rootparam[0].DescriptorTable.NumDescriptorRanges = 1;
 
 	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -653,7 +653,7 @@ bool RenderingEngine::CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView)
 }
 
 //テクスチャと行列のディスクリプタヒープを作成する
-bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image* img, DirectX::XMMATRIX matrix)
+bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image *img, DirectX::XMMATRIX matrix)
 {
 	// WriteToSubresourceで転送するためのヒープ設定
 	D3D12_HEAP_PROPERTIES heapProp = {};
@@ -677,7 +677,7 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 	//テクスチャバッファの作成
-	ID3D12Resource* texBuff = nullptr;
+	ID3D12Resource *texBuff = nullptr;
 	LRESULT res = _device->CreateCommittedResource(
 		&heapProp,
 		D3D12_HEAP_FLAG_NONE,
@@ -705,7 +705,7 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 	}
 
 	//定数バッファーの生成
-	ID3D12Resource* constBuff = nullptr;
+	ID3D12Resource *constBuff = nullptr;
 	CD3DX12_HEAP_PROPERTIES prp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff);
 
@@ -723,17 +723,18 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 	}
 
 	// Mapによる転送
-	DirectX::XMMATRIX* mapMatrix;
-	res = constBuff->Map(0, nullptr, (void**)&mapMatrix);
+	DirectX::XMMATRIX *mapMatrix;
+	res = constBuff->Map(0, nullptr, (void **)&mapMatrix);
 	if (FAILED(res))
 	{
 		OutputDebugFormatedString("マッピングに失敗\n");
 		return false;
 	}
 	*mapMatrix = matrix;
+	constBuff->Unmap(0, nullptr);
 
 	//ディスクリプタヒープの作成
-	ID3D12DescriptorHeap* DescHeap = nullptr;
+	ID3D12DescriptorHeap *DescHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	descHeapDesc.NodeMask = 0;
@@ -778,7 +779,7 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
 	_cmdList->SetDescriptorHeaps(1, &DescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, DescHeap->GetGPUDescriptorHandleForHeapStart());
-	auto heapHandle = DescHeap->GetGPUDescriptorHandleForHeapStart(); 
+	auto heapHandle = DescHeap->GetGPUDescriptorHandleForHeapStart();
 	heapHandle.ptr += _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
 
@@ -806,8 +807,17 @@ bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, Direct
 		}
 	}
 
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
-	if (!CreateDescriptorHeap(texData, img,matrix))
+	//MVP変換
+	//DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
+	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4+_angle);
+	DirectX::XMFLOAT3 eye(0, 0, -5);
+	DirectX::XMFLOAT3 target(0, 0, 0);
+	DirectX::XMFLOAT3 up(0, 1, 0);
+
+	matrix *=  DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
+	matrix *=DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), 1.0f, 10.0f);
+
+	if (!CreateDescriptorHeap(texData, img, matrix))
 	{
 		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
 		return false;
@@ -829,61 +839,34 @@ bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, Direct
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(Vertex* vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img)
+bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
 {
 	return false;
 }
 
-
-
-bool RenderingEngine::SampleRender()
+bool RenderingEngine::SampleRender(DirectX::TexMetadata metadata, const DirectX::Image* img)
 {
 	beginRender();
 
 	//ポリゴンの描画
 	Vertex *vertices = new Vertex[4];
-	vertices[0] = {{-0.4f, -0.7f, 0.0f}, {0.0f, 1.0f}};
-	vertices[1] = {{-0.4f, 0.7f, 0.0f}, {0.0f, 0.0f}};
-	vertices[2] = {{0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}};
-	vertices[3] = {{0.4f, 0.7f, 0.0f}, {1.0f, 0.0f}};
+	vertices[0] = {{-1.0f,-1.0f, 0.0f}, {0.0f, 1.0f}};
+	vertices[1] = {{-1.0f,1.0f, 0.0f}, {0.0f, 0.0f}};
+	vertices[2] = {{1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}};
+	vertices[3] = {{1.0f, 1.0f, 0.0f}, {1.0f, 0.0f}};
 
-	DirectX::TexMetadata metadata = {};
-	DirectX::ScratchImage scratchImg = {};
-
-	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
-
-	if (FAILED(res))
-	{
-		OutputDebugFormatedString("テクスチャの読み込みに失敗");
-	}
-	auto img = scratchImg.GetImage(0, 0, 0);
-
-	std::vector<TexRGBA> texData(256 * 256);
-	for (int i = 0; i < 256 * 256; i++)
-	{
-		texData[i].R = i / 256;
-		texData[i].G = i % 256;
-		texData[i].B = 255;
-		texData[i].A = 255;
-	}
 	if (!RenderPolygonWithTex(vertices, 4, metadata, img))
 	{
 		OutputDebugFormatedString("ポリゴンのレンダリングに失敗\n");
 		return false;
 	}
 
-	// CreateGraphicsPipelineState();
-	Vertex *vertices2 = new Vertex[3];
-	vertices2[0] = {{-0.7f, -0.5f, 0.0f}, {0.0f, 1.0f}};
-	vertices2[1] = {{-0.7f, 0.5f, 0.0f}, {0.0f, 0.0f}};
-	vertices2[2] = {{-0.4f, -0.5f, 0.0f}, {1.0f, 1.0f}};
-
-	/*if (!RenderPolygonWithTex(vertices2, 3, texData))
-	{
-		OutputDebugFormatedString("2kaimenoポリゴンのレンダリングに失敗\n");
-		return false;
-	}*/
 	endRender();
 
 	return true;
+}
+
+void RenderingEngine::RotatePolygon(float angle)
+{
+	_angle += angle;
 }

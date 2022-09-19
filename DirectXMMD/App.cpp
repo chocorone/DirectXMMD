@@ -1,5 +1,18 @@
 #include "App.h"
 #include "Engine.h"
+#ifdef _DEBUG
+#define OutputDebugFormatedString(str, ...)       \
+	{                                             \
+		TCHAR c[256];                             \
+		swprintf(c, 256, TEXT(str), __VA_ARGS__); \
+		OutputDebugString(c);                     \
+	}
+#else
+#define MyOutputDebugString(str, ...) // 空実装
+#endif
+
+DirectX::TexMetadata metadata = {};
+const DirectX::Image* img;
 
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -34,6 +47,10 @@ void MainLoop()
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
+			
+			g_Engine->SampleRender(metadata, img);
+			g_Engine->RotatePolygon(0.1f);
+			
 		}
 		else
 		{
@@ -88,7 +105,17 @@ void StartApp(const TCHAR *appName)
 		return;
 	}
 
-	g_Engine->SampleRender();
+	DirectX::ScratchImage scratchImg = {};
+
+	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
+
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("テクスチャの読み込みに失敗");
+	}
+	img = scratchImg.GetImage(0, 0, 0);
+
+	g_Engine->SampleRender(metadata,img);
 	OutputDebugString(TEXT("一回目描画\n"));
 	//g_Engine->SampleRender();
 	//OutputDebugString(TEXT("2回目描画\n"));

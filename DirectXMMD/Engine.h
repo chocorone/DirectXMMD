@@ -50,9 +50,14 @@ private:
 		0, 1, 2,
 		2, 1, 3};
 
+	float _angle = 0;
+
 public:
 	bool Init(HWND hwnd);
-	bool SampleRender();
+	bool SampleRender(DirectX::TexMetadata metadata, const DirectX::Image* img);
+	void RotatePolygon(float angle);
+	bool beginRender();
+	void endRender();
 
 private:
 	bool CreateDevice(); //デバイス生成用関数
@@ -62,8 +67,7 @@ private:
 	bool CreateFence();
 
 	void EnableDebugLayer();
-	bool beginRender();
-	void endRender();
+
 	void CreateViewports();
 	void CreateScissorRect();
 	bool CreateGraphicsPipelineState();
