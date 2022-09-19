@@ -10,12 +10,14 @@
 #include <d3dcompiler.h>
 #include <stdio.h>
 #include <wchar.h>
+#include <DirectXTex.h>
 #include "ComPtr.h"
 #include "ShaderStruct.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib,"DirectXTex.lib")
 
 class RenderingEngine
 {
@@ -67,8 +69,9 @@ private:
 	bool CreateGraphicsPipelineState();
 	bool CreateRootSignature();
 
-	bool CreateVertexBufferView(const Vertex* vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW* vbView);
-	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW* ibView);
+	bool CreateVertexBufferView(const Vertex *vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW *vbView);
+	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView);
+	bool CreateTexShaderResourceView(std::vector<TexRGBA> texData);
 };
 
 extern RenderingEngine *g_Engine;

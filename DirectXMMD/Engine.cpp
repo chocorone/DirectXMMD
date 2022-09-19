@@ -307,12 +307,44 @@ void RenderingEngine::endRender()
 	OutputDebugString(L"描画完了\n");
 }
 
-bool RenderingEngine::CreateRootSignature() {
+bool RenderingEngine::CreateRootSignature()
+{
+	//ディスクリプタレンジの設定
+	D3D12_DESCRIPTOR_RANGE descTblRange = {};
+	descTblRange.NumDescriptors = 1;
+	descTblRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange.BaseShaderRegister = 0;
+	descTblRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//ルートパラメーターの設定
+	D3D12_ROOT_PARAMETER rootparam = {};
+	rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam.DescriptorTable.pDescriptorRanges = &descTblRange;
+	rootparam.DescriptorTable.NumDescriptorRanges = 1;
+
+	//サンプラーの設定
+	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc.MinLOD = 0.0f;
+	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
 	//ルートシグニチャの作成
 	D3D12_ROOT_SIGNATURE_DESC rootSignitureDesc = {};
 	rootSignitureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	ID3DBlob* rootSigBlob = nullptr;
-	ID3DBlob* errorBlob = nullptr;
+	rootSignitureDesc.pParameters = &rootparam;
+	rootSignitureDesc.NumParameters = 1;
+	rootSignitureDesc.pStaticSamplers = &samplerDesc;
+	rootSignitureDesc.NumStaticSamplers = 1;
+
+	ID3DBlob *rootSigBlob = nullptr;
+	ID3DBlob *errorBlob = nullptr;
 	LRESULT res = D3D12SerializeRootSignature(
 		&rootSignitureDesc,
 		D3D_ROOT_SIGNATURE_VERSION_1_0,
@@ -323,15 +355,15 @@ bool RenderingEngine::CreateRootSignature() {
 		if (errorBlob)
 		{
 			OutputDebugString(TEXT("ルートシグニチャの生成に失敗:"));
-			OutputDebugStringA(static_cast<char*>(errorBlob->GetBufferPointer()));
+			OutputDebugStringA(static_cast<char *>(errorBlob->GetBufferPointer()));
 		}
 		return false;
 	}
 
 	res = _device->CreateRootSignature(0,
-		rootSigBlob->GetBufferPointer(),
-		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(&_rootSignature));
+									   rootSigBlob->GetBufferPointer(),
+									   rootSigBlob->GetBufferSize(),
+									   IID_PPV_ARGS(&_rootSignature));
 
 	rootSigBlob->Release();
 	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
@@ -391,7 +423,6 @@ bool RenderingEngine::CreateGraphicsPipelineState()
 	//グラフィックスパイプラインステートの作成
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
 
-	
 	gpipeline.pRootSignature = _rootSignature.Get();
 
 	//シェーダーの設定
@@ -551,7 +582,7 @@ bool RenderingEngine::CreateVertexBufferView(const Vertex *vertices, const int v
 	return true;
 }
 
-bool RenderingEngine::CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW* ibView)
+bool RenderingEngine::CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView)
 {
 	//頂点ヒープの設定
 	D3D12_HEAP_PROPERTIES heapprp = {};
@@ -603,7 +634,83 @@ bool RenderingEngine::CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW* ibView)
 	ibView->Format = DXGI_FORMAT_R16_UINT;
 	ibView->SizeInBytes = sizeof(indices);
 
+	return true;
+}
 
+bool RenderingEngine::CreateTexShaderResourceView(std::vector<TexRGBA> texData)
+{
+	// WriteToSubresourceで転送するためのヒープ設定
+	D3D12_HEAP_PROPERTIES heapProp = {};
+	heapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0; //転送はCPU側から直接
+	heapProp.CreationNodeMask = 0;
+	heapProp.VisibleNodeMask = 0;
+
+	//リソースの設定
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	resDesc.Width = 256;
+	resDesc.Height = 256;
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.MipLevels = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	//テクスチャバッファの作成
+	ID3D12Resource *texBuff = nullptr;
+	LRESULT res = _device->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS(&texBuff));
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("テクスチャバッファの作成に失敗\n");
+		return false;
+	}
+
+	// WriteToSubresourceによる転送
+	res = texBuff->WriteToSubresource(
+		0,
+		nullptr,
+		texData.data(),
+		sizeof(TexRGBA) * 256,
+		sizeof(TexRGBA) * texData.size());
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("WriteToSubresourceによる転送に失敗\n");
+		return false;
+	}
+
+	//ディスクリプタヒープの作成
+	ID3D12DescriptorHeap *texDescHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask = 0;
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	res = _device->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
+
+	//シェーダーリソースビューの設定
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	//シェーダーリソースビューをディスクリプタヒープ上に作成
+	_device->CreateShaderResourceView(
+		texBuff,
+		&srvDesc,
+		texDescHeap->GetCPUDescriptorHandleForHeapStart());
+	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
+	_cmdList->SetDescriptorHeaps(1, &texDescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(0, texDescHeap->GetGPUDescriptorHandleForHeapStart());
 	return true;
 }
 
@@ -619,11 +726,19 @@ bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, std::vector<T
 
 	//四角形ならインデックスバッファービューの作成
 	D3D12_INDEX_BUFFER_VIEW ibView = {};
-	if (vertNum == 4) {
-		if (!CreateIndexBufferView(&ibView)) {
+	if (vertNum == 4)
+	{
+		if (!CreateIndexBufferView(&ibView))
+		{
 			OutputDebugFormatedString("インデックスバッファービューの作成に失敗\n");
 			return false;
 		}
+	}
+
+	if (!CreateTexShaderResourceView(texData))
+	{
+		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
+		return false;
 	}
 
 	//コマンドリストに追加
@@ -653,6 +768,9 @@ bool RenderingEngine::SampleRender()
 	vertices[2] = {{0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}};
 	vertices[3] = {{0.4f, 0.7f, 0.0f}, {1.0f, 0.0f}};
 
+	DirectX::TexMetadata meta = {};
+	DirectX::ScratchImage scratchImg = {};
+
 	std::vector<TexRGBA> texData(256 * 256);
 	for (auto &rgba : texData)
 	{
@@ -667,11 +785,11 @@ bool RenderingEngine::SampleRender()
 		return false;
 	}
 
-	//CreateGraphicsPipelineState();
-	Vertex* vertices2 = new Vertex[3];
-	vertices2[0] = { {-0.7f, -0.5f, 0.0f}, {0.0f, 1.0f} };
-	vertices2[1] = { {-0.7f, 0.5f, 0.0f}, {0.0f, 0.0f} };
-	vertices2[2] = { {-0.4f, -0.5f, 0.0f}, {1.0f, 1.0f} };
+	// CreateGraphicsPipelineState();
+	Vertex *vertices2 = new Vertex[3];
+	vertices2[0] = {{-0.7f, -0.5f, 0.0f}, {0.0f, 1.0f}};
+	vertices2[1] = {{-0.7f, 0.5f, 0.0f}, {0.0f, 0.0f}};
+	vertices2[2] = {{-0.4f, -0.5f, 0.0f}, {1.0f, 1.0f}};
 
 	if (!RenderPolygon(vertices2, 3, texData))
 	{
