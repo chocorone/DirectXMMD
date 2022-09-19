@@ -714,6 +714,126 @@ bool RenderingEngine::CreateTexShaderResourceView(std::vector<TexRGBA> texData)
 	return true;
 }
 
+bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image* img)
+{
+	// WriteToSubresourceで転送するためのヒープ設定
+	D3D12_HEAP_PROPERTIES heapProp = {};
+	heapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0; //転送はCPU側から直接
+	heapProp.CreationNodeMask = 0;
+	heapProp.VisibleNodeMask = 0;
+
+	//リソースの設定
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = texData.format;
+	resDesc.Width = texData.width;
+	resDesc.Height = texData.height;
+	resDesc.DepthOrArraySize = texData.arraySize;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.MipLevels = texData.mipLevels;
+	resDesc.Dimension = static_cast<D3D12_RESOURCE_DIMENSION>(texData.dimension);
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	//テクスチャバッファの作成
+	ID3D12Resource *texBuff = nullptr;
+	LRESULT res = _device->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS(&texBuff));
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("テクスチャバッファの作成に失敗\n");
+		return false;
+	}
+
+	// WriteToSubresourceによる転送
+	res = texBuff->WriteToSubresource(
+		0,
+		nullptr,
+		img->pixels,
+		img->rowPitch,
+		img->slicePitch);
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("WriteToSubresourceによる転送に失敗\n");
+		return false;
+	}
+
+	//ディスクリプタヒープの作成
+	ID3D12DescriptorHeap *texDescHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask = 0;
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	res = _device->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
+
+	//シェーダーリソースビューの設定
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = texData.format;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	//シェーダーリソースビューをディスクリプタヒープ上に作成
+	_device->CreateShaderResourceView(
+		texBuff,
+		&srvDesc,
+		texDescHeap->GetCPUDescriptorHandleForHeapStart());
+	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
+	_cmdList->SetDescriptorHeaps(1, &texDescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(0, texDescHeap->GetGPUDescriptorHandleForHeapStart());
+	return true;
+}
+
+bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img)
+{
+	//頂点バッファービューの作成
+	D3D12_VERTEX_BUFFER_VIEW vbView = {};
+	if (!CreateVertexBufferView(vertices, vertNum, &vbView))
+	{
+		OutputDebugFormatedString("頂点バッファービューの作成に失敗\n");
+		return false;
+	}
+
+	//四角形ならインデックスバッファービューの作成
+	D3D12_INDEX_BUFFER_VIEW ibView = {};
+	if (vertNum == 4)
+	{
+		if (!CreateIndexBufferView(&ibView))
+		{
+			OutputDebugFormatedString("インデックスバッファービューの作成に失敗\n");
+			return false;
+		}
+	}
+
+	if (!CreateTexShaderResourceView(texData,img))
+	{
+		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
+		return false;
+	}
+
+	//コマンドリストに追加
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_cmdList->IASetVertexBuffers(0, 1, &vbView);
+	if (vertNum == 3)
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	else if (vertNum == 4)
+	{
+		//四角形ならインデックスバッファをコマンドリストに追加
+		_cmdList->IASetIndexBuffer(&ibView);
+		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+	}
+
+	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
+	return true;
+}
+
 bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData)
 {
 	//頂点バッファービューの作成
@@ -768,18 +888,25 @@ bool RenderingEngine::SampleRender()
 	vertices[2] = {{0.4f, -0.7f, 0.0f}, {1.0f, 1.0f}};
 	vertices[3] = {{0.4f, 0.7f, 0.0f}, {1.0f, 0.0f}};
 
-	DirectX::TexMetadata meta = {};
+	DirectX::TexMetadata metadata = {};
 	DirectX::ScratchImage scratchImg = {};
 
-	std::vector<TexRGBA> texData(256 * 256);
-	for (auto &rgba : texData)
-	{
-		rgba.R = rand() % 256;
-		rgba.G = rand() % 256;
-		rgba.B = rand() % 256;
-		rgba.A = 255;
+	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
+
+	if (FAILED(res)) {
+		OutputDebugFormatedString("テクスチャの読み込みに失敗");
 	}
-	if (!RenderPolygon(vertices, 4, texData))
+	auto img = scratchImg.GetImage(0, 0, 0);
+
+	std::vector<TexRGBA> texData(256 * 256);
+	for (int i= 0;i<256*256;i++)
+	{
+		texData[i].R = i / 256;
+		texData[i].G = i % 256;
+		texData[i].B = 255;
+		texData[i].A = 255;
+	}
+	if (!RenderPolygon(vertices, 4, metadata,img))
 	{
 		OutputDebugFormatedString("ポリゴンのレンダリングに失敗\n");
 		return false;

@@ -17,7 +17,7 @@
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
-#pragma comment(lib,"DirectXTex.lib")
+#pragma comment(lib, "DirectXTex.lib")
 
 class RenderingEngine
 {
@@ -52,7 +52,6 @@ private:
 public:
 	bool Init(HWND hwnd);
 	bool SampleRender();
-	bool RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData);
 
 private:
 	bool CreateDevice(); //デバイス生成用関数
@@ -72,6 +71,9 @@ private:
 	bool CreateVertexBufferView(const Vertex *vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW *vbView);
 	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView);
 	bool CreateTexShaderResourceView(std::vector<TexRGBA> texData);
+	bool CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image* img);
+	bool RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData);
+	bool RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img);
 };
 
 extern RenderingEngine *g_Engine;

@@ -90,8 +90,8 @@ void StartApp(const TCHAR *appName)
 
 	g_Engine->SampleRender();
 	OutputDebugString(TEXT("一回目描画\n"));
-	g_Engine->SampleRender();
-	OutputDebugString(TEXT("2回目描画\n"));
+	//g_Engine->SampleRender();
+	//OutputDebugString(TEXT("2回目描画\n"));
 
 	MainLoop();
 }
