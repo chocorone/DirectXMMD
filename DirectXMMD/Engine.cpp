@@ -313,18 +313,30 @@ void RenderingEngine::endRender()
 bool RenderingEngine::CreateRootSignature()
 {
 	//ディスクリプタレンジの設定
-	D3D12_DESCRIPTOR_RANGE descTblRange = {};
-	descTblRange.NumDescriptors = 1;
-	descTblRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descTblRange.BaseShaderRegister = 0;
-	descTblRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_DESCRIPTOR_RANGE descTblRange[2] = {};
+	//テクスチャ用
+	descTblRange[0].NumDescriptors = 1;
+	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange[0].BaseShaderRegister = 0;
+	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	//定数バッファ用
+	descTblRange[1].NumDescriptors = 1;
+	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange[1].BaseShaderRegister = 0;
+	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//ルートパラメーターの設定
-	D3D12_ROOT_PARAMETER rootparam = {};
-	rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootparam.DescriptorTable.pDescriptorRanges = &descTblRange;
-	rootparam.DescriptorTable.NumDescriptorRanges = 1;
+	D3D12_ROOT_PARAMETER rootparam[2] = {};
+	rootparam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[0].DescriptorTable.pDescriptorRanges = &descTblRange[0];
+	rootparam[0].DescriptorTable.NumDescriptorRanges = 1;
+
+	rootparam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootparam[1].DescriptorTable.pDescriptorRanges = &descTblRange[1];
+	rootparam[1].DescriptorTable.NumDescriptorRanges = 1;
 
 	//サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
@@ -341,8 +353,8 @@ bool RenderingEngine::CreateRootSignature()
 	//ルートシグニチャの作成
 	D3D12_ROOT_SIGNATURE_DESC rootSignitureDesc = {};
 	rootSignitureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSignitureDesc.pParameters = &rootparam;
-	rootSignitureDesc.NumParameters = 1;
+	rootSignitureDesc.pParameters = rootparam;
+	rootSignitureDesc.NumParameters = 2;
 	rootSignitureDesc.pStaticSamplers = &samplerDesc;
 	rootSignitureDesc.NumStaticSamplers = 1;
 
@@ -640,84 +652,8 @@ bool RenderingEngine::CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView)
 	return true;
 }
 
-bool RenderingEngine::CreateTexShaderResourceView(std::vector<TexRGBA> texData)
-{
-	// WriteToSubresourceで転送するためのヒープ設定
-	D3D12_HEAP_PROPERTIES heapProp = {};
-	heapProp.Type = D3D12_HEAP_TYPE_CUSTOM;
-	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0; //転送はCPU側から直接
-	heapProp.CreationNodeMask = 0;
-	heapProp.VisibleNodeMask = 0;
-
-	//リソースの設定
-	D3D12_RESOURCE_DESC resDesc = {};
-	resDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	resDesc.Width = 256;
-	resDesc.Height = 256;
-	resDesc.DepthOrArraySize = 1;
-	resDesc.SampleDesc.Count = 1;
-	resDesc.SampleDesc.Quality = 0;
-	resDesc.MipLevels = 1;
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	//テクスチャバッファの作成
-	ID3D12Resource *texBuff = nullptr;
-	LRESULT res = _device->CreateCommittedResource(
-		&heapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&resDesc,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-		nullptr,
-		IID_PPV_ARGS(&texBuff));
-	if (FAILED(res))
-	{
-		OutputDebugFormatedString("テクスチャバッファの作成に失敗\n");
-		return false;
-	}
-
-	// WriteToSubresourceによる転送
-	res = texBuff->WriteToSubresource(
-		0,
-		nullptr,
-		texData.data(),
-		sizeof(TexRGBA) * 256,
-		sizeof(TexRGBA) * texData.size());
-	if (FAILED(res))
-	{
-		OutputDebugFormatedString("WriteToSubresourceによる転送に失敗\n");
-		return false;
-	}
-
-	//ディスクリプタヒープの作成
-	ID3D12DescriptorHeap *texDescHeap = nullptr;
-	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	descHeapDesc.NodeMask = 0;
-	descHeapDesc.NumDescriptors = 1;
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	res = _device->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
-
-	//シェーダーリソースビューの設定
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-	//シェーダーリソースビューをディスクリプタヒープ上に作成
-	_device->CreateShaderResourceView(
-		texBuff,
-		&srvDesc,
-		texDescHeap->GetCPUDescriptorHandleForHeapStart());
-	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
-	_cmdList->SetDescriptorHeaps(1, &texDescHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(0, texDescHeap->GetGPUDescriptorHandleForHeapStart());
-	return true;
-}
-
-bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image *img)
+//テクスチャと行列のディスクリプタヒープを作成する
+bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image* img, DirectX::XMMATRIX matrix)
 {
 	// WriteToSubresourceで転送するためのヒープ設定
 	D3D12_HEAP_PROPERTIES heapProp = {};
@@ -741,7 +677,7 @@ bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 	//テクスチャバッファの作成
-	ID3D12Resource *texBuff = nullptr;
+	ID3D12Resource* texBuff = nullptr;
 	LRESULT res = _device->CreateCommittedResource(
 		&heapProp,
 		D3D12_HEAP_FLAG_NONE,
@@ -768,14 +704,51 @@ bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, 
 		return false;
 	}
 
+	//定数バッファーの生成
+	ID3D12Resource* constBuff = nullptr;
+	CD3DX12_HEAP_PROPERTIES prp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff);
+
+	res = _device->CreateCommittedResource(
+		&(prp),
+		D3D12_HEAP_FLAG_NONE,
+		&(desc),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&constBuff));
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("定数バッファの作成に失敗\n");
+		return false;
+	}
+
+	// Mapによる転送
+	DirectX::XMMATRIX* mapMatrix;
+	res = constBuff->Map(0, nullptr, (void**)&mapMatrix);
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("マッピングに失敗\n");
+		return false;
+	}
+	*mapMatrix = matrix;
+
 	//ディスクリプタヒープの作成
-	ID3D12DescriptorHeap *texDescHeap = nullptr;
+	ID3D12DescriptorHeap* DescHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	descHeapDesc.NodeMask = 0;
-	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.NumDescriptors = 2;
 	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	res = _device->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&texDescHeap));
+	res = _device->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&DescHeap));
+
+	if (FAILED(res))
+	{
+		OutputDebugFormatedString("ディスクリプタヒープの作成に失敗\n");
+		return false;
+	}
+
+	//ディスクリプタの先頭ハンドルを取得
+	auto basicHeapHandle = DescHeap->GetCPUDescriptorHandleForHeapStart();
 
 	//シェーダーリソースビューの設定
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -787,14 +760,32 @@ bool RenderingEngine::CreateTexShaderResourceView(DirectX::TexMetadata texData, 
 	_device->CreateShaderResourceView(
 		texBuff,
 		&srvDesc,
-		texDescHeap->GetCPUDescriptorHandleForHeapStart());
+		basicHeapHandle);
+
+	//次の場所へ
+	basicHeapHandle.ptr += _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//定数バッファービューの作成
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.BufferLocation = constBuff->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = constBuff->GetDesc().Width;
+
+	//定数バッファービューをディスクリプタヒープ上に作成
+	_device->CreateConstantBufferView(
+		&cbvDesc,
+		basicHeapHandle);
+
 	_cmdList->SetGraphicsRootSignature(_rootSignature.Get());
-	_cmdList->SetDescriptorHeaps(1, &texDescHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(0, texDescHeap->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetDescriptorHeaps(1, &DescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(0, DescHeap->GetGPUDescriptorHandleForHeapStart());
+	auto heapHandle = DescHeap->GetGPUDescriptorHandleForHeapStart(); 
+	heapHandle.ptr += _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
+
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
+bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
 {
 	//頂点バッファービューの作成
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
@@ -815,7 +806,8 @@ bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexM
 		}
 	}
 
-	if (!CreateTexShaderResourceView(texData, img))
+	DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
+	if (!CreateDescriptorHeap(texData, img,matrix))
 	{
 		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
 		return false;
@@ -837,48 +829,12 @@ bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexM
 	return true;
 }
 
-bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData)
+bool RenderingEngine::RenderPolygon(Vertex* vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img)
 {
-	//頂点バッファービューの作成
-	D3D12_VERTEX_BUFFER_VIEW vbView = {};
-	if (!CreateVertexBufferView(vertices, vertNum, &vbView))
-	{
-		OutputDebugFormatedString("頂点バッファービューの作成に失敗\n");
-		return false;
-	}
-
-	//四角形ならインデックスバッファービューの作成
-	D3D12_INDEX_BUFFER_VIEW ibView = {};
-	if (vertNum == 4)
-	{
-		if (!CreateIndexBufferView(&ibView))
-		{
-			OutputDebugFormatedString("インデックスバッファービューの作成に失敗\n");
-			return false;
-		}
-	}
-
-	if (!CreateTexShaderResourceView(texData))
-	{
-		OutputDebugFormatedString("テクスチャデータの作成に失敗\n");
-		return false;
-	}
-
-	//コマンドリストに追加
-	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	_cmdList->IASetVertexBuffers(0, 1, &vbView);
-	if (vertNum == 3)
-		_cmdList->DrawInstanced(3, 1, 0, 0);
-	else if (vertNum == 4)
-	{
-		//四角形ならインデックスバッファをコマンドリストに追加
-		_cmdList->IASetIndexBuffer(&ibView);
-		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-	}
-
-	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
-	return true;
+	return false;
 }
+
+
 
 bool RenderingEngine::SampleRender()
 {
@@ -910,7 +866,7 @@ bool RenderingEngine::SampleRender()
 		texData[i].B = 255;
 		texData[i].A = 255;
 	}
-	if (!RenderPolygon(vertices, 4, metadata, img))
+	if (!RenderPolygonWithTex(vertices, 4, metadata, img))
 	{
 		OutputDebugFormatedString("ポリゴンのレンダリングに失敗\n");
 		return false;
@@ -922,11 +878,11 @@ bool RenderingEngine::SampleRender()
 	vertices2[1] = {{-0.7f, 0.5f, 0.0f}, {0.0f, 0.0f}};
 	vertices2[2] = {{-0.4f, -0.5f, 0.0f}, {1.0f, 1.0f}};
 
-	if (!RenderPolygon(vertices2, 3, texData))
+	/*if (!RenderPolygonWithTex(vertices2, 3, texData))
 	{
 		OutputDebugFormatedString("2kaimenoポリゴンのレンダリングに失敗\n");
 		return false;
-	}
+	}*/
 	endRender();
 
 	return true;

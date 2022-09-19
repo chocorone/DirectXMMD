@@ -1,5 +1,6 @@
 #pragma once
 #include <d3d12.h>
+#include <d3dx12.h>
 #include <dxgi.h>
 #include <dxgi1_6.h>
 #include <Windows.h>
@@ -68,12 +69,11 @@ private:
 	bool CreateGraphicsPipelineState();
 	bool CreateRootSignature();
 
+	bool CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image* img, DirectX::XMMATRIX matrix);
 	bool CreateVertexBufferView(const Vertex *vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW *vbView);
 	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView);
-	bool CreateTexShaderResourceView(std::vector<TexRGBA> texData);
-	bool CreateTexShaderResourceView(DirectX::TexMetadata texData, const DirectX::Image* img);
-	bool RenderPolygon(Vertex *vertices, int vertNum, std::vector<TexRGBA> texData);
-	bool RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image* img);
+	bool RenderPolygonWithTex(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img);
+	bool RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img);
 };
 
 extern RenderingEngine *g_Engine;
