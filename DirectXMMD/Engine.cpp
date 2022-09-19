@@ -1,17 +1,6 @@
 #include "Engine.h"
 #include "App.h"
 
-#ifdef _DEBUG
-#define OutputDebugFormatedString(str, ...)       \
-	{                                             \
-		TCHAR c[256];                             \
-		swprintf(c, 256, TEXT(str), __VA_ARGS__); \
-		OutputDebugString(c);                     \
-	}
-#else
-#define MyOutputDebugString(str, ...) // 空実装
-#endif
-
 RenderingEngine *g_Engine;
 
 bool RenderingEngine::Init(HWND hwnd)
@@ -814,7 +803,7 @@ bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, Direct
 	DirectX::XMFLOAT3 target(0, 0, 0);
 	DirectX::XMFLOAT3 up(0, 1, 0);
 
-	matrix *=  DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
+	matrix *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
 	matrix *=DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), 1.0f, 10.0f);
 
 	if (!CreateDescriptorHeap(texData, img, matrix))
@@ -839,6 +828,7 @@ bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, Direct
 	return true;
 }
 
+//テクスチャのないマテリアル用？
 bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
 {
 	return false;

@@ -1,15 +1,6 @@
 #include "App.h"
 #include "Engine.h"
-#ifdef _DEBUG
-#define OutputDebugFormatedString(str, ...)       \
-	{                                             \
-		TCHAR c[256];                             \
-		swprintf(c, 256, TEXT(str), __VA_ARGS__); \
-		OutputDebugString(c);                     \
-	}
-#else
-#define MyOutputDebugString(str, ...) // 空実装
-#endif
+
 
 DirectX::TexMetadata metadata = {};
 const DirectX::Image* img;
@@ -48,8 +39,8 @@ void MainLoop()
 				DispatchMessage(&msg);
 			}
 			
-			g_Engine->SampleRender(metadata, img);
-			g_Engine->RotatePolygon(0.1f);
+			//g_Engine->SampleRender(metadata, img);
+			//g_Engine->RotatePolygon(0.1f);
 			
 		}
 		else
@@ -99,11 +90,25 @@ HWND InitWindow(const TCHAR *appName)
 void StartApp(const TCHAR *appName)
 {
 	HWND hwnd = InitWindow(appName);
+
 	g_Engine = new RenderingEngine();
 	if (!g_Engine->Init(hwnd))
 	{
 		return;
 	}
+
+	PMDHeader pmdheader={};
+
+	char signature[3] = {};
+	auto fp = fopen("./Model/tokino2.pmd","rb");
+
+	fread(signature, sizeof(signature), 1, fp);
+	fread(&pmdheader, sizeof(PMDHeader), 1, fp);
+	fclose(fp);
+
+	OutputDebugStringA(pmdheader.model_name);
+	OutputDebugStringA(pmdheader.comment);
+
 
 	DirectX::ScratchImage scratchImg = {};
 
@@ -112,13 +117,12 @@ void StartApp(const TCHAR *appName)
 	if (FAILED(res))
 	{
 		OutputDebugFormatedString("テクスチャの読み込みに失敗");
+		return;
 	}
 	img = scratchImg.GetImage(0, 0, 0);
 
 	g_Engine->SampleRender(metadata,img);
 	OutputDebugString(TEXT("一回目描画\n"));
-	//g_Engine->SampleRender();
-	//OutputDebugString(TEXT("2回目描画\n"));
 
 	MainLoop();
 }

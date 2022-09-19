@@ -13,3 +13,11 @@ struct TexRGBA
 {
 	unsigned char R, G, B, A;
 };
+
+struct PMDHeader 
+{
+	float version;
+	char model_name[20];
+	char comment[256];
+
+};
