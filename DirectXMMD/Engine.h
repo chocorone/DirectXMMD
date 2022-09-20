@@ -55,7 +55,7 @@ private:
 
 public:
 	bool Init(HWND hwnd);
-	bool SampleRender(DirectX::TexMetadata metadata, const DirectX::Image* img);
+	bool SampleRender(DirectX::TexMetadata metadata, const DirectX::Image *img);
 	void RotatePolygon(float angle);
 	bool beginRender();
 	void endRender();
@@ -74,7 +74,7 @@ private:
 	bool CreateGraphicsPipelineState();
 	bool CreateRootSignature();
 
-	bool CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image* img, DirectX::XMMATRIX matrix);
+	bool CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image *img, DirectX::XMMATRIX matrix);
 	bool CreateVertexBufferView(const Vertex *vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW *vbView);
 	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView);
 	bool RenderPolygonWithTex(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img);

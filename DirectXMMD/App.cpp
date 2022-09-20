@@ -1,9 +1,8 @@
 #include "App.h"
 #include "Engine.h"
 
-
 DirectX::TexMetadata metadata = {};
-const DirectX::Image* img;
+const DirectX::Image *img;
 
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -38,10 +37,9 @@ void MainLoop()
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-			
-			//g_Engine->SampleRender(metadata, img);
-			//g_Engine->RotatePolygon(0.1f);
-			
+
+			// g_Engine->SampleRender(metadata, img);
+			// g_Engine->RotatePolygon(0.1f);
 		}
 		else
 		{
@@ -97,23 +95,34 @@ void StartApp(const TCHAR *appName)
 		return;
 	}
 
-	PMDHeader pmdheader={};
+	PMDHeader pmdheader = {};
 
 	char signature[3] = {};
-	auto fp = fopen("./Model/tokino2.pmd","rb");
+	auto fp = fopen("./Model/tokino2.pmd", "rb");
 
 	fread(signature, sizeof(signature), 1, fp);
 	fread(&pmdheader, sizeof(PMDHeader), 1, fp);
+
+	constexpr size_t pmdvertex_size = 38;
+
+	unsigned int vertNum;
+	fread(&vertNum, sizeof(vertNum), 1, fp);
+
+	std::vector<unsigned char> vertics(vertNum * pmdvertex_size);
+
+	fread(vertics.data(), vertics.size(), 1, fp);
+
 	fclose(fp);
 
 	OutputDebugStringA(pmdheader.model_name);
+	OutputDebugFormatedString("\n")
 	OutputDebugStringA(pmdheader.comment);
-
+	OutputDebugFormatedString("\n")
+	OutputDebugFormatedString("頂点数：%d\n", vertNum)
 
 	DirectX::ScratchImage scratchImg = {};
 
 	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
-
 	if (FAILED(res))
 	{
 		OutputDebugFormatedString("テクスチャの読み込みに失敗");
@@ -121,7 +130,7 @@ void StartApp(const TCHAR *appName)
 	}
 	img = scratchImg.GetImage(0, 0, 0);
 
-	g_Engine->SampleRender(metadata,img);
+	g_Engine->SampleRender(metadata, img);
 	OutputDebugString(TEXT("一回目描画\n"));
 
 	MainLoop();

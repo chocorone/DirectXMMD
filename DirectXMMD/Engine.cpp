@@ -253,14 +253,13 @@ bool RenderingEngine::beginRender()
 	//レンダーターゲットビューにセット
 	_cmdList->OMSetRenderTargets(1, &_nowRTVDescripterHandle, true, nullptr);
 
-	CreateRootSignature();
-	CreateGraphicsPipelineState();
-	CreateViewports();
-	CreateScissorRect();
+
 
 	//画面のクリア処理
 	float clearColor[] = {0.8f, 0.7f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(_nowRTVDescripterHandle, clearColor, 0, nullptr);
+	CreateViewports();
+	CreateScissorRect();
 
 	return true;
 }
@@ -751,7 +750,6 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 		texBuff,
 		&srvDesc,
 		basicHeapHandle);
-
 	//次の場所へ
 	basicHeapHandle.ptr += _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -777,6 +775,7 @@ bool RenderingEngine::CreateDescriptorHeap(DirectX::TexMetadata texData, const D
 
 bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img)
 {
+
 	//頂点バッファービューの作成
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 	if (!CreateVertexBufferView(vertices, vertNum, &vbView))
@@ -796,15 +795,15 @@ bool RenderingEngine::RenderPolygonWithTex(Vertex *vertices, int vertNum, Direct
 		}
 	}
 
-	//MVP変換
-	//DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4+_angle);
+	// MVP変換
+	// DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
+	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4 + _angle);
 	DirectX::XMFLOAT3 eye(0, 0, -5);
 	DirectX::XMFLOAT3 target(0, 0, 0);
 	DirectX::XMFLOAT3 up(0, 1, 0);
 
 	matrix *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
-	matrix *=DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), 1.0f, 10.0f);
+	matrix *= DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), 1.0f, 10.0f);
 
 	if (!CreateDescriptorHeap(texData, img, matrix))
 	{
@@ -834,14 +833,15 @@ bool RenderingEngine::RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexM
 	return false;
 }
 
-bool RenderingEngine::SampleRender(DirectX::TexMetadata metadata, const DirectX::Image* img)
+bool RenderingEngine::SampleRender(DirectX::TexMetadata metadata, const DirectX::Image *img)
 {
 	beginRender();
-
+	CreateRootSignature();
+	CreateGraphicsPipelineState();
 	//ポリゴンの描画
 	Vertex *vertices = new Vertex[4];
-	vertices[0] = {{-1.0f,-1.0f, 0.0f}, {0.0f, 1.0f}};
-	vertices[1] = {{-1.0f,1.0f, 0.0f}, {0.0f, 0.0f}};
+	vertices[0] = {{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}};
+	vertices[1] = {{-1.0f, 1.0f, 0.0f}, {0.0f, 0.0f}};
 	vertices[2] = {{1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}};
 	vertices[3] = {{1.0f, 1.0f, 0.0f}, {1.0f, 0.0f}};
 
@@ -850,6 +850,7 @@ bool RenderingEngine::SampleRender(DirectX::TexMetadata metadata, const DirectX:
 		OutputDebugFormatedString("ポリゴンのレンダリングに失敗\n");
 		return false;
 	}
+
 
 	endRender();
 
