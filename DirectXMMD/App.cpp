@@ -1,5 +1,4 @@
 #include "App.h"
-#include "Engine.h"
 
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -96,30 +95,10 @@ void StartApp(const TCHAR *appName)
 		return;
 	}
 
-	PMDHeader pmdheader = {};
+	PMDObject *obj = new PMDObject;
+	obj->LoadData("./Model/tokino2.pmd");
 
-	char signature[3] = {};
-	auto fp = fopen("./Model/tokino2.pmd", "rb");
-
-	fread(signature, sizeof(signature), 1, fp);
-	fread(&pmdheader, sizeof(PMDHeader), 1, fp);
-
-	unsigned int vertNum;
-	fread(&vertNum, sizeof(vertNum), 1, fp);
-
-	std::vector<unsigned char> vertics(vertNum * pmdvertex_size);
-
-	fread(vertics.data(), vertics.size(), 1, fp);
-
-	fclose(fp);
-	OutputDebugFormatedString("size of pmd vertex = %zu\n", pmdvertex_size);
-	OutputDebugStringA(pmdheader.model_name);
-	OutputDebugFormatedString("\n");
-	OutputDebugStringA(pmdheader.comment);
-	OutputDebugFormatedString("\n");
-	OutputDebugFormatedString("頂点数：%d\n", vertNum);
-
-	g_Engine->SampleRender(vertics);
+	g_Engine->SampleRender(obj);
 	OutputDebugString(TEXT("一回目描画\n"));
 
 	MainLoop();

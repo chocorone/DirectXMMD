@@ -15,6 +15,7 @@
 #include "ComPtr.h"
 #include "ShaderStruct.h"
 #include "Output.h"
+#include "PMDObject.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -65,7 +66,7 @@ private:
 
 public:
 	bool Init(HWND hwnd);
-	bool SampleRender(std::vector<unsigned char> vertices);
+	bool SampleRender(PMDObject* obj);
 	void RotatePolygon(float angle);
 	bool beginRender();
 	void endRender();
@@ -81,7 +82,7 @@ private:
 	void CreateViewports();
 	void CreateScissorRect();
 
-	bool RenderPMD(std::vector<unsigned char> vertices);
+	bool RenderPMD(PMDObject* obj);
 
 	void EnableDebugLayer();
 };

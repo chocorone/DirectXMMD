@@ -1,6 +1,7 @@
 #pragma once
 #include <Windows.h>
-
+#include "PMDObject.h"
+#include "Engine.h"
 
 
 const UINT WINDOW_WIDTH = 1200;

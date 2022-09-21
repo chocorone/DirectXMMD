@@ -266,7 +266,7 @@ bool RenderingEngine::beginRender()
 	_cmdList->OMSetRenderTargets(1, &_nowRTVDescripterHandle, true, nullptr);
 
 	//画面のクリア処理
-	float clearColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+	float clearColor[] = {0.0f, 0.0f, 0.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(_nowRTVDescripterHandle, clearColor, 0, nullptr);
 	CreateViewports();
 	CreateScissorRect();
@@ -538,8 +538,8 @@ bool RenderingEngine::CreatePipelineState()
 		//カットなし
 		gpipeline.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 		//プリミティブトポロジの指定
-		gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
-		// gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		// gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+		gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
 		//レンダーターゲットの指定
 		gpipeline.NumRenderTargets = 1;
@@ -561,45 +561,16 @@ bool RenderingEngine::CreatePipelineState()
 	}
 }
 
-bool RenderingEngine::RenderPMD(std::vector<unsigned char> vertices)
+bool RenderingEngine::RenderPMD(PMDObject *obj)
 {
 	CreatePipelineState();
-	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-	//_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//頂点バッファービューの作成
 	{
-		D3D12_VERTEX_BUFFER_VIEW vbView = {};
-		/*//頂点ヒープの設定
-		D3D12_HEAP_PROPERTIES heapprp = {};
-		heapprp.Type = D3D12_HEAP_TYPE_UPLOAD; // mapするためUPLOAD
-		heapprp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		heapprp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-		//リソースの設定
-		D3D12_RESOURCE_DESC resdesc = {};
-		resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		resdesc.Width = vertices.size();
-		resdesc.Height = 1;
-		resdesc.DepthOrArraySize = 1;
-		resdesc.MipLevels = 1;
-		resdesc.Format = DXGI_FORMAT_UNKNOWN;
-		resdesc.SampleDesc.Count = 1;
-		resdesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-		resdesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-		//バッファー作成
-		ID3D12Resource *vertBuff = nullptr;
-
-		LRESULT res = _device->CreateCommittedResource(&heapprp,
-													   D3D12_HEAP_FLAG_NONE,
-													   &resdesc,
-													   D3D12_RESOURCE_STATE_GENERIC_READ,
-													   nullptr,
-													   IID_PPV_ARGS(&vertBuff));*/
-
 		auto prp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		auto desc = CD3DX12_RESOURCE_DESC::Buffer(vertices.size());
+		auto desc = CD3DX12_RESOURCE_DESC::Buffer(obj->vertics.size());
 		ID3D12Resource *vertBuff = nullptr;
 		LRESULT res = _device->CreateCommittedResource(&prp,
 													   D3D12_HEAP_FLAG_NONE,
@@ -622,22 +593,56 @@ bool RenderingEngine::RenderPMD(std::vector<unsigned char> vertices)
 			return false;
 		}
 
-		std::copy(vertices.begin(), vertices.end(), vertMap);
-
+		std::copy(obj->vertics.begin(), obj->vertics.end(), vertMap);
 		vertBuff->Unmap(0, nullptr);
 
+		D3D12_VERTEX_BUFFER_VIEW vbView = {};
 		vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
 		vbView.StrideInBytes = pmdvertex_size;
-		vbView.SizeInBytes = static_cast<UINT>(vertices.size());
+		vbView.SizeInBytes = static_cast<UINT>(obj->vertics.size());
 
 		//コマンドリストに追加
 		OutputDebugFormatedString("vbView.Size  = %zu\n", vbView.SizeInBytes);
 		_cmdList->IASetVertexBuffers(0, 1, &vbView);
 	}
 
+	//インデックスバッファービューの作成
+	{
+		auto prp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto desc = CD3DX12_RESOURCE_DESC::Buffer(obj->indices.size() * sizeof(obj->indices[0]));
+		ID3D12Resource *idxBuff = nullptr;
+		LRESULT res = _device->CreateCommittedResource(
+			&prp,
+			D3D12_HEAP_FLAG_NONE,
+			&desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&idxBuff));
+		if (FAILED(res))
+		{
+			OutputDebugString(TEXT("インデックスバッファの作成に失敗しました\n"));
+			return false;
+		}
+
+		unsigned short *mappedIdx = nullptr;
+		res = idxBuff->Map(0, nullptr, (void **)&mappedIdx);
+		if (FAILED(res))
+		{
+			OutputDebugString(TEXT("インデックスバッファのマッピングに失敗しました\n"));
+			return false;
+		}
+		std::copy(obj->indices.begin(), obj->indices.end(), mappedIdx);
+		idxBuff->Unmap(0, nullptr);
+
+		D3D12_INDEX_BUFFER_VIEW ibView = {};
+		ibView.BufferLocation = idxBuff->GetGPUVirtualAddress();
+		ibView.Format = DXGI_FORMAT_R16_UINT;
+		ibView.SizeInBytes = obj->indices.size() * sizeof(obj->indices[0]);
+		_cmdList->IASetIndexBuffer(&ibView);
+	}
 	// MVP変換
 	// DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(0);
+	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4 / 2);
 
 	matrix *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
 	matrix *= DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), NearZ, FarZ);
@@ -776,14 +781,13 @@ bool RenderingEngine::RenderPMD(std::vector<unsigned char> vertices)
 		_cmdList->SetGraphicsRootDescriptorTable(1, heapHandle);
 	}
 
-	OutputDebugFormatedString("vertexNum = %zu\n", vertices.size() / pmdvertex_size);
-
-	_cmdList->DrawInstanced(vertices.size() / pmdvertex_size, 1, 0, 0);
+	//_cmdList->DrawInstanced(obj->indicesNum, 1, 0, 0);
+	_cmdList->DrawIndexedInstanced(obj->indicesNum, 1, 0, 0, 0);
 	OutputDebugFormatedString("ポリゴンの描画をコマンドリストに追加\n");
 	return true;
 }
 
-bool RenderingEngine::SampleRender(std::vector<unsigned char> vertices)
+bool RenderingEngine::SampleRender(PMDObject *obj)
 {
 
 	beginRender();
@@ -801,7 +805,9 @@ bool RenderingEngine::SampleRender(std::vector<unsigned char> vertices)
 	// }
 
 	// PMDファイルの描画
-	RenderPMD(vertices);
+	//これだと毎回計算することになるので、matrixをUnmapせずに計算だけでいいかも
+	// ibViewとかテクスチャのディスクリプタとかは保存？
+	RenderPMD(obj);
 
 	endRender();
 
