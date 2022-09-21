@@ -39,4 +39,4 @@ struct CameraPos
 	float FarZ;
 };
 
-constexpr size_t pmdvertex_size = sizeof(PMDVertex);
+constexpr size_t pmdvertex_size = 38;

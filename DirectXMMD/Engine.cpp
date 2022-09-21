@@ -563,7 +563,7 @@ bool RenderingEngine::CreatePipelineState()
 
 bool RenderingEngine::RenderPMD(std::vector<unsigned char> vertices)
 {
-
+	CreatePipelineState();
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 	//_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
@@ -785,7 +785,7 @@ bool RenderingEngine::RenderPMD(std::vector<unsigned char> vertices)
 
 bool RenderingEngine::SampleRender(std::vector<unsigned char> vertices)
 {
-	CreatePipelineState();
+
 	beginRender();
 	//ポリゴンの描画
 	// Vertex *vertices = new Vertex[4];
