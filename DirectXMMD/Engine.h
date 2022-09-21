@@ -53,9 +53,19 @@ private:
 
 	float _angle = 0;
 
+	//カメラの座標
+	DirectX::XMFLOAT3 eye = {0, 10, -15};
+	DirectX::XMFLOAT3 target = {0, 10, 0};
+	DirectX::XMFLOAT3 up = {0, 1, 0};
+	float NearZ = 1.0f;
+	float FarZ = 100.0f;
+
+	DirectX::TexMetadata whiteMetaData = {};
+	DirectX::Image whiteImg = {};
+
 public:
 	bool Init(HWND hwnd);
-	bool SampleRender(DirectX::TexMetadata metadata, const DirectX::Image *img);
+	bool SampleRender(std::vector<unsigned char> vertices);
 	void RotatePolygon(float angle);
 	bool beginRender();
 	void endRender();
@@ -67,18 +77,13 @@ private:
 	bool CreateRTV();
 	bool CreateFence();
 
-	void EnableDebugLayer();
-
+	bool CreatePipelineState();
 	void CreateViewports();
 	void CreateScissorRect();
-	bool CreateGraphicsPipelineState();
-	bool CreateRootSignature();
 
-	bool CreateDescriptorHeap(DirectX::TexMetadata texData, const DirectX::Image *img, DirectX::XMMATRIX matrix);
-	bool CreateVertexBufferView(const Vertex *vertices, const int vertNum, D3D12_VERTEX_BUFFER_VIEW *vbView);
-	bool CreateIndexBufferView(D3D12_INDEX_BUFFER_VIEW *ibView);
-	bool RenderPolygonWithTex(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img);
-	bool RenderPolygon(Vertex *vertices, int vertNum, DirectX::TexMetadata texData, const DirectX::Image *img);
+	bool RenderPMD(std::vector<unsigned char> vertices);
+
+	void EnableDebugLayer();
 };
 
 extern RenderingEngine *g_Engine;

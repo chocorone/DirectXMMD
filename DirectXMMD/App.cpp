@@ -1,9 +1,6 @@
 #include "App.h"
 #include "Engine.h"
 
-DirectX::TexMetadata metadata = {};
-const DirectX::Image *img;
-
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	switch (msg)
@@ -85,6 +82,10 @@ HWND InitWindow(const TCHAR *appName)
 	return hwnd;
 }
 
+void LoadPMD()
+{
+}
+
 void StartApp(const TCHAR *appName)
 {
 	HWND hwnd = InitWindow(appName);
@@ -103,8 +104,6 @@ void StartApp(const TCHAR *appName)
 	fread(signature, sizeof(signature), 1, fp);
 	fread(&pmdheader, sizeof(PMDHeader), 1, fp);
 
-	constexpr size_t pmdvertex_size = 38;
-
 	unsigned int vertNum;
 	fread(&vertNum, sizeof(vertNum), 1, fp);
 
@@ -113,24 +112,14 @@ void StartApp(const TCHAR *appName)
 	fread(vertics.data(), vertics.size(), 1, fp);
 
 	fclose(fp);
-
+	OutputDebugFormatedString("size of pmd vertex = %zu\n", pmdvertex_size);
 	OutputDebugStringA(pmdheader.model_name);
-	OutputDebugFormatedString("\n")
+	OutputDebugFormatedString("\n");
 	OutputDebugStringA(pmdheader.comment);
-	OutputDebugFormatedString("\n")
-	OutputDebugFormatedString("頂点数：%d\n", vertNum)
+	OutputDebugFormatedString("\n");
+	OutputDebugFormatedString("頂点数：%d\n", vertNum);
 
-	DirectX::ScratchImage scratchImg = {};
-
-	LRESULT res = LoadFromWICFile(L"./img/sampleTex.png", DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImg);
-	if (FAILED(res))
-	{
-		OutputDebugFormatedString("テクスチャの読み込みに失敗");
-		return;
-	}
-	img = scratchImg.GetImage(0, 0, 0);
-
-	g_Engine->SampleRender(metadata, img);
+	g_Engine->SampleRender(vertics);
 	OutputDebugString(TEXT("一回目描画\n"));
 
 	MainLoop();

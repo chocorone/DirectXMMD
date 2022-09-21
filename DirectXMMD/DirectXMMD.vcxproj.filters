@@ -65,6 +65,12 @@
     <FxCompile Include="BasicPixelShader.hlsl">
       <Filter>ソース ファイル</Filter>
     </FxCompile>
+    <FxCompile Include="PMDPixelShader.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+    <FxCompile Include="PMDVertexShader.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="BasicShaderHeader.hlsli">
