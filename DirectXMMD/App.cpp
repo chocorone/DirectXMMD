@@ -1,5 +1,5 @@
 #include "App.h"
-
+PMDObject *obj;
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	switch (msg)
@@ -34,8 +34,8 @@ void MainLoop()
 				DispatchMessage(&msg);
 			}
 
-			// g_Engine->SampleRender(metadata, img);
-			// g_Engine->RotatePolygon(0.1f);
+			g_Engine->SampleRender(obj);
+			g_Engine->RotatePolygon(0.05f);
 		}
 		else
 		{
@@ -95,7 +95,7 @@ void StartApp(const TCHAR *appName)
 		return;
 	}
 
-	PMDObject *obj = new PMDObject;
+	obj = new PMDObject;
 	obj->LoadData("./Model/tokino2.pmd");
 
 	g_Engine->SampleRender(obj);

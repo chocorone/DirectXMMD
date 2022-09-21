@@ -23,4 +23,10 @@ struct CameraPos
 	float FarZ;
 };
 
+struct MatricesData
+{
+	DirectX::XMMATRIX world;
+	DirectX::XMMATRIX mvp;
+};
+
 constexpr size_t pmdvertex_size = 38;

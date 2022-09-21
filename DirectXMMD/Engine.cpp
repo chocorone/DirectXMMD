@@ -705,10 +705,9 @@ bool RenderingEngine::RenderPMD(PMDObject *obj)
 
 	// MVP変換
 	// DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4 / 2);
+	DirectX::XMMATRIX worldMat = DirectX::XMMatrixRotationY(_angle);
 
-	matrix *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
-	matrix *= DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), NearZ, FarZ);
+	DirectX::XMMATRIX viewMat = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up)) * DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV2, static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), NearZ, FarZ);
 
 	//ディスクリプタヒープの作成
 	{
@@ -768,7 +767,7 @@ bool RenderingEngine::RenderPMD(PMDObject *obj)
 		//定数バッファーの生成
 		ID3D12Resource *constBuff = nullptr;
 		CD3DX12_HEAP_PROPERTIES prp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer((sizeof(matrix) + 0xff) & ~0xff);
+		CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer((sizeof(MatricesData) + 0xff) & ~0xff);
 
 		res = _device->CreateCommittedResource(
 			&(prp),
@@ -784,15 +783,16 @@ bool RenderingEngine::RenderPMD(PMDObject *obj)
 		}
 
 		// Mapによる転送
-		DirectX::XMMATRIX *mapMatrix;
+		MatricesData *mapMatrix;
 		res = constBuff->Map(0, nullptr, (void **)&mapMatrix);
 		if (FAILED(res))
 		{
 			OutputDebugFormatedString("マッピングに失敗\n");
 			return false;
 		}
-		*mapMatrix = matrix;
-		constBuff->Unmap(0, nullptr);
+		mapMatrix->world = worldMat;
+		mapMatrix->mvp = worldMat * viewMat;
+		//constBuff->Unmap(0, nullptr);
 
 		//ディスクリプタヒープの作成
 		ID3D12DescriptorHeap *DescHeap = nullptr;
