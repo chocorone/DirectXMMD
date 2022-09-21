@@ -66,7 +66,7 @@ private:
 
 public:
 	bool Init(HWND hwnd);
-	bool SampleRender(PMDObject* obj);
+	bool SampleRender(PMDObject *obj);
 	void RotatePolygon(float angle);
 	bool beginRender();
 	void endRender();
@@ -81,8 +81,9 @@ private:
 	bool CreatePipelineState();
 	void CreateViewports();
 	void CreateScissorRect();
+	// bool CreateDepthBufferView();
 
-	bool RenderPMD(PMDObject* obj);
+	bool RenderPMD(PMDObject *obj);
 
 	void EnableDebugLayer();
 };

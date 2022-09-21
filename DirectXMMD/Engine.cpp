@@ -262,12 +262,71 @@ bool RenderingEngine::beginRender()
 	_barriorDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	_cmdList->ResourceBarrier(1, &_barriorDesc);
 
+	ID3D12DescriptorHeap *dsvHeap = nullptr;
+	//深度バッファーの作成
+	{
+		D3D12_RESOURCE_DESC desc = {};
+		desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		desc.Width = WINDOW_WIDTH;
+		desc.Height = WINDOW_HEIGHT;
+		desc.DepthOrArraySize = 1;
+		desc.Format = DXGI_FORMAT_D32_FLOAT;
+		desc.SampleDesc.Count = 1;
+		desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+		D3D12_HEAP_PROPERTIES prp = {};
+		prp.Type = D3D12_HEAP_TYPE_DEFAULT;
+		prp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		prp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+		D3D12_CLEAR_VALUE value = {};
+		value.DepthStencil.Depth = 1.0f;
+		value.Format = DXGI_FORMAT_D32_FLOAT;
+
+		ID3D12Resource *depthBuffer = nullptr;
+		LRESULT res = _device->CreateCommittedResource(
+			&prp,
+			D3D12_HEAP_FLAG_NONE,
+			&desc,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			&value,
+			IID_PPV_ARGS(&depthBuffer));
+
+		if (FAILED(res))
+		{
+			OutputDebugFormatedString("深度バッファの作成に失敗\n");
+			return false;
+		}
+
+		D3D12_DESCRIPTOR_HEAP_DESC heapdesc = {};
+		heapdesc.NumDescriptors = 1;
+		heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+		res = _device->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&dsvHeap));
+		if (FAILED(res))
+		{
+			OutputDebugFormatedString("デプスステンシル用ディスクリプタヒープの生成に失敗\n");
+			return false;
+		}
+
+		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+		dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+		_device->CreateDepthStencilView(
+			depthBuffer,
+			&dsvDesc,
+			dsvHeap->GetCPUDescriptorHandleForHeapStart());
+	}
+
 	//レンダーターゲットビューにセット
-	_cmdList->OMSetRenderTargets(1, &_nowRTVDescripterHandle, true, nullptr);
+	auto dsvH = dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	_cmdList->OMSetRenderTargets(1, &_nowRTVDescripterHandle, false, &dsvH);
 
 	//画面のクリア処理
 	float clearColor[] = {0.0f, 0.0f, 0.0f, 1.0f};
 	_cmdList->ClearRenderTargetView(_nowRTVDescripterHandle, clearColor, 0, nullptr);
+	_cmdList->ClearDepthStencilView(dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	CreateViewports();
 	CreateScissorRect();
 
@@ -490,6 +549,10 @@ bool RenderingEngine::CreatePipelineState()
 		//深度方向のクリッピング
 		gpipeline.RasterizerState.DepthClipEnable = true;
 
+		gpipeline.DepthStencilState.DepthEnable = true;
+		gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+		gpipeline.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+
 		//ブレンドステートの設定
 		//αテストの有無
 		gpipeline.BlendState.AlphaToCoverageEnable = false;
@@ -563,7 +626,6 @@ bool RenderingEngine::CreatePipelineState()
 
 bool RenderingEngine::RenderPMD(PMDObject *obj)
 {
-	CreatePipelineState();
 	//_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -640,6 +702,7 @@ bool RenderingEngine::RenderPMD(PMDObject *obj)
 		ibView.SizeInBytes = obj->indices.size() * sizeof(obj->indices[0]);
 		_cmdList->IASetIndexBuffer(&ibView);
 	}
+
 	// MVP変換
 	// DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
 	DirectX::XMMATRIX matrix = DirectX::XMMatrixRotationY(DirectX::XM_PIDIV4 / 2);
@@ -789,7 +852,7 @@ bool RenderingEngine::RenderPMD(PMDObject *obj)
 
 bool RenderingEngine::SampleRender(PMDObject *obj)
 {
-
+	CreatePipelineState();
 	beginRender();
 	//ポリゴンの描画
 	// Vertex *vertices = new Vertex[4];

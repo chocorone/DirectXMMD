@@ -5,5 +5,6 @@ Output PMDVS(float4 pos : POSITION, float4 normal:NORMAL,float2 uv : TEXCOORD,mi
 	Output o;
 	o.pos = mul(mat, pos);
 	o.uv = uv;
+	o.normal = normal;
 	return o;
 }
